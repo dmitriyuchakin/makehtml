@@ -1,0 +1,515 @@
+#!/bin/bash
+#
+# Platypus Wrapper Script for DOCX2HTML (WebView Interface) - FIXED VERSION
+# This script handles dropped .docx files and displays results with HTML preview
+#
+
+# Debug: Log environment to a file we can check
+{
+    echo "=== Platypus Environment Debug ==="
+    echo "Date: $(date)"
+    echo "SCRIPT_DIR: $SCRIPT_DIR"
+    echo "PWD: $(pwd)"
+    echo "Script location: $0"
+    echo "Args: $@"
+    echo "Bundled files in current dir:"
+    ls -la
+    echo "================================"
+} >> /tmp/platypus-debug.log 2>&1
+
+# Get the Resources directory from Platypus environment variables
+# Platypus changes PWD to the Resources directory where bundled files are located
+if [ -f "$(pwd)/docx2html" ]; then
+    # Best case: converter is in current directory (Platypus Resources folder)
+    SCRIPT_DIR="$(pwd)"
+    CONVERTER="$SCRIPT_DIR/docx2html"
+elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/docx2html" ]; then
+    # Fallback: Use SCRIPT_DIR if it's set and has the converter
+    CONVERTER="$SCRIPT_DIR/docx2html"
+elif [ -f "$(dirname "$0")/docx2html" ]; then
+    # Another fallback: Look for converter next to this script
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    CONVERTER="$SCRIPT_DIR/docx2html"
+else
+    # Last resort: assume current directory
+    SCRIPT_DIR="$(pwd)"
+    CONVERTER="$SCRIPT_DIR/docx2html"
+fi
+
+# Log converter path for debugging
+echo "Converter path: $CONVERTER" >> /tmp/platypus-debug.log 2>&1
+echo "Converter exists: $([ -f "$CONVERTER" ] && echo "YES" || echo "NO")" >> /tmp/platypus-debug.log 2>&1
+
+# Config file location
+CONFIG_FILE="$HOME/Library/Application Support/DOCX2HTML/config.json"
+
+# PRE-ESCAPE paths before using them in HTML to avoid command substitution in heredoc
+# This is the KEY FIX - do all escaping BEFORE the heredoc
+CONVERTER_ESCAPED="${CONVERTER//&/&amp;}"
+CONVERTER_ESCAPED="${CONVERTER_ESCAPED//</&lt;}"
+CONVERTER_ESCAPED="${CONVERTER_ESCAPED//>/&gt;}"
+
+SCRIPT_DIR_ESCAPED="${SCRIPT_DIR//&/&amp;}"
+SCRIPT_DIR_ESCAPED="${SCRIPT_DIR_ESCAPED//</&lt;}"
+SCRIPT_DIR_ESCAPED="${SCRIPT_DIR_ESCAPED//>/&gt;}"
+
+# Check converter status before heredoc
+if [ -f "$CONVERTER" ]; then
+    CONVERTER_STATUS='<span style="color: #34C759;">✓ Found</span>'
+else
+    CONVERTER_STATUS='<span style="color: #FF3B30;">✗ Not Found</span>'
+fi
+
+# Pre-compute URLs for config access buttons
+CONFIG_DIR_URL="file://${HOME}/Library/Application%20Support/DOCX2HTML/"
+CONFIG_FILE_URL="file://${HOME}/Library/Application%20Support/DOCX2HTML/config.json"
+VSCODE_URL="vscode://file${HOME}/Library/Application%20Support/DOCX2HTML/config.json"
+
+# Function to display error page
+show_error() {
+    local error_message="$1"
+    local file_name="$2"
+
+    # Escape the error message and filename
+    local escaped_message="${error_message//&/&amp;}"
+    escaped_message="${escaped_message//</&lt;}"
+    escaped_message="${escaped_message//>/&gt;}"
+
+    local escaped_filename="${file_name//&/&amp;}"
+    escaped_filename="${escaped_filename//</&lt;}"
+    escaped_filename="${escaped_filename//>/&gt;}"
+
+
+    cat << EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f7;
+        }
+        .header {
+            background: #FF3B30;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 600;
+        }
+        .content {
+            max-width: 800px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        .error-box {
+            background: #FFF3F3;
+            border: 2px solid #FF3B30;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 14px;
+            color: #D32F2F;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .info {
+            color: #666;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✗ Conversion Failed</h1>
+    </div>
+    <div class="content">
+        <p class="info"><strong>File:</strong> $escaped_filename</p>
+        <h3>Error Details:</h3>
+        <div class="error-box">$escaped_message</div>
+        <p class="info">Please check your .docx file and try again.</p>
+    </div>
+</body>
+</html>
+EOF
+}
+
+# Check if any files were dropped
+if [ $# -eq 0 ]; then
+    # No files dropped - show dropzone with debug info
+    cat << EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .dropzone {
+            text-align: center;
+            padding: 60px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 600px;
+        }
+        .dropzone h1 {
+            color: #007AFF;
+            font-size: 48px;
+            margin: 0 0 20px 0;
+        }
+        .dropzone p {
+            color: #666;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .config-path {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+            color: #999;
+        }
+        .config-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .config-button {
+            padding: 10px 20px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        }
+        .config-button:hover {
+            background: #0056b3;
+        }
+        .config-button:active {
+            transform: scale(0.98);
+        }
+        .config-button.secondary {
+            background: #5856D6;
+        }
+        .config-button.secondary:hover {
+            background: #4038a0;
+        }
+        .debug-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 11px;
+            color: #666;
+            text-align: left;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        .debug-info .status {
+            color: #34C759;
+        }
+        .debug-info .error {
+            color: #FF3B30;
+        }
+    </style>
+</head>
+<body>
+    <div class="dropzone">
+        <h1>📄 DOCX2HTML</h1>
+        <p>Drop a .docx file here to convert it to HTML</p>
+        <p style="font-size: 14px; margin-top: 30px;">Your converted HTML will be saved in the same directory</p>
+        <div class="config-path">
+            <strong>Configuration:</strong> ~/Library/Application Support/DOCX2HTML/config.json
+            <div class="config-buttons">
+                <button class="config-button" onclick="openConfigFolder(); return false;">
+                    📁 Open Config Folder
+                </button>
+                <button class="config-button secondary" onclick="openInVSCode(); return false;">
+                    ✏️ Edit in VS Code
+                </button>
+            </div>
+        </div>
+        <script>
+        function openConfigFolder() {
+            // Create a temporary anchor tag and click it
+            var a = document.createElement('a');
+            a.href = '$CONFIG_DIR_URL';
+            a.target = '_blank';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                document.body.removeChild(a);
+            }, 100);
+        }
+
+        function openInVSCode() {
+            // Create temporary anchor for VS Code URL
+            var a = document.createElement('a');
+            a.href = '$VSCODE_URL';
+            a.target = '_blank';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+
+            // Fallback to file URL after delay
+            setTimeout(function() {
+                document.body.removeChild(a);
+                var a2 = document.createElement('a');
+                a2.href = '$CONFIG_FILE_URL';
+                a2.target = '_blank';
+                a2.style.display = 'none';
+                document.body.appendChild(a2);
+                a2.click();
+                setTimeout(function() {
+                    document.body.removeChild(a2);
+                }, 100);
+            }, 500);
+        }
+        </script>
+        <div class="debug-info">
+            <strong>Debug Info:</strong><br>
+            Converter: <code>$CONVERTER_ESCAPED</code><br>
+            Status: $CONVERTER_STATUS<br>
+            Script Dir: <code>$SCRIPT_DIR_ESCAPED</code><br>
+            <br>
+            Log file: /tmp/platypus-debug.log
+        </div>
+    </div>
+</body>
+</html>
+EOF
+    exit 0
+fi
+
+# Check if converter exists
+if [ ! -f "$CONVERTER" ]; then
+    show_error "Converter executable not found at: $CONVERTER
+
+This usually means the app bundle wasn't created correctly.
+
+Please ensure:
+1. You ran ./build-app.sh to create dist/docx2html
+2. You added dist/docx2html to Bundled Files in Platypus
+3. The executable has correct permissions" "Setup Error"
+    exit 1
+fi
+
+# Process each dropped file
+for file in "$@"; do
+    if [[ "$file" == *.docx ]]; then
+        # Get file names
+        input_file="$file"
+        input_basename=$(basename "$input_file")
+        output_file="${input_file%.docx}.html"
+        output_basename=$(basename "$output_file")
+
+        # Convert the file (capture both stdout and stderr)
+        error_output=$("$CONVERTER" "$input_file" -o "$output_file" 2>&1)
+        exit_code=$?
+
+        if [ $exit_code -ne 0 ]; then
+            # Conversion failed
+            show_error "$error_output" "$input_basename"
+            continue
+        fi
+
+        # Read the generated HTML content
+        if [ ! -f "$output_file" ]; then
+            show_error "Output file was not created: $output_file" "$input_basename"
+            continue
+        fi
+
+        html_content=$(cat "$output_file" 2>&1)
+        if [ $? -ne 0 ]; then
+            show_error "Could not read output file: $output_file" "$input_basename"
+            continue
+        fi
+
+        # Escape file paths for HTML display
+        escaped_input="${input_basename//&/&amp;}"
+        escaped_input="${escaped_input//</&lt;}"
+        escaped_input="${escaped_input//>/&gt;}"
+
+        escaped_output="${output_basename//&/&amp;}"
+        escaped_output="${escaped_output//</&lt;}"
+        escaped_output="${escaped_output//>/&gt;}"
+
+        output_dir=$(dirname "$output_file")
+        escaped_dir="${output_dir//&/&amp;}"
+        escaped_dir="${escaped_dir//</&lt;}"
+        escaped_dir="${escaped_dir//>/&gt;}"
+
+        # URL encode the file path for the link
+        url_encoded_path=$(echo "$output_file" | sed 's/ /%20/g')
+
+        # Display success page with preview
+
+        cat << EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f7;
+        }
+        .header {
+            background: linear-gradient(135deg, #007AFF 0%, #0051D5 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,122,255,0.3);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 600;
+        }
+        .content {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        .info-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #333;
+            min-width: 100px;
+        }
+        .info-value {
+            color: #666;
+            flex: 1;
+        }
+        .info-value a {
+            color: #007AFF;
+            text-decoration: none;
+        }
+        .info-value a:hover {
+            text-decoration: underline;
+        }
+        .preview-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .preview-header {
+            background: #f8f9fa;
+            padding: 20px 25px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .preview-header h2 {
+            margin: 0;
+            font-size: 20px;
+            color: #333;
+        }
+        .preview-content {
+            padding: 30px;
+            background: white;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success-badge {
+            display: inline-block;
+            background: #34C759;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✓ Conversion Complete <span class="success-badge">SUCCESS</span></h1>
+    </div>
+
+    <div class="content">
+        <div class="info-card">
+            <div class="info-row">
+                <div class="info-label">Input File:</div>
+                <div class="info-value">$escaped_input</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Output File:</div>
+                <div class="info-value">
+                    <a href="file://$url_encoded_path">$escaped_output</a>
+                    <span style="color: #999; font-size: 12px; margin-left: 10px;">(click to open)</span>
+                </div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Location:</div>
+                <div class="info-value" style="font-size: 12px; color: #999;">$escaped_dir</div>
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <div class="preview-header">
+                <h2>HTML Preview</h2>
+            </div>
+            <div class="preview-content">
+$html_content
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+EOF
+
+        # Send notification
+        osascript -e "display notification \"Converted to $output_basename\" with title \"DOCX2HTML\" subtitle \"✓ Conversion Complete\"" 2>/dev/null || true
+
+    else
+        # Not a .docx file
+        show_error "File must be a .docx document" "$(basename "$file")"
+    fi
+done
+
+# Show config location on first run
+if [ ! -f "$CONFIG_FILE" ]; then
+    osascript -e "display notification \"Configuration created at: $CONFIG_FILE\" with title \"DOCX2HTML\" subtitle \"First Run\"" 2>/dev/null || true
+fi

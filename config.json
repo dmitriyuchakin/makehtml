@@ -1,0 +1,55 @@
+{
+  "output": {
+    "paragraph_tag": "p",
+    "heading_tag": "h3"
+  },
+   "special_characters": [
+    {
+      "character": "\u00a9",
+      "wrap_tag": "sup",
+      "enabled": true
+    },
+    {
+      "character": "\u00ae",
+      "wrap_tag": "sup",
+      "enabled": true
+    },
+    {
+      "character": "\u2122",
+      "wrap_tag": "sup",
+      "enabled": true
+    }
+  ],
+  "replacements": [
+    {
+      "search": "@AmericanAir",
+      "replace": "<a target=\"blank\" href=\"https:/x.com/AmericanAir\">@AmericanAir</a>",
+      "case_sensitive": true
+    },
+    {
+      "search": "news.aa.com",
+      "replace": "<a href=\"https://news.aa.com\">news.aa.com</a>",
+      "case_sensitive": true
+    },{
+      "search": "Facebook.com/AmericanAirlines",
+      "replace": "<a target=\"blank\" href=\"https://facebook.com/AmericanAirlines\">Facebook.com/AmericanAirlines</a>",
+      "case_sensitive": true
+    },
+    {
+      "search": "oneworld",
+      "replace": "<strong>one</strong>world",
+      "case_sensitive": true
+    },
+    {
+      "search": "\u202F",
+      "replace": " ",
+      "case_sensitive": false
+    }
+  ],
+  "quote_detection": {
+    "enabled": true,
+    "threshold": 3,
+    "wrap_tag": "blockquote",
+    "quote_types": ["\"", "\u201C", "\u201D", "\u2018", "\u2019"]
+  }
+}
