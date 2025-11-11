@@ -5,7 +5,15 @@
       "Bash(chmod:*)",
       "Bash(./build-app.sh)",
       "Bash(./dist/docx2html:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(mv:*)",
+      "Bash(./build.sh:*)",
+      "Bash(cat:*)",
+      "Bash(xattr:*)",
+      "Bash(codesign:*)",
+      "Bash(plutil:*)",
+      "Bash(pyinstaller:*)",
+      "Bash(./dist/makehtml:*)"
     ],
     "deny": [],
     "ask": []

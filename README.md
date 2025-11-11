@@ -1,4 +1,4 @@
-# DOCX2HTML Converter
+# makeHTML Converter
 
 A native macOS application for converting Microsoft Word (.docx) files to clean HTML with customizable output and live preview.
 
@@ -6,20 +6,19 @@ A native macOS application for converting Microsoft Word (.docx) files to clean 
 
 ```
 docx-html/
-├── DOCX2HTML-Swift/          # Native Swift/SwiftUI macOS app
-│   ├── ContentView.swift     # Main UI with drag-drop and preview
-│   ├── DOCX2HTMLApp.swift    # App entry point
-│   ├── build.sh              # Build script
-│   ├── README.md             # Swift app documentation
-│   └── QUICK-START.md        # Quick build guide
+├── makeHTML-Swift/            # Native Swift/SwiftUI macOS app
+│   ├── ContentView.swift      # Main UI with drag-drop and preview
+│   ├── makeHTMLApp.swift      # App entry point
+│   ├── build.sh               # Build script
+│   ├── header-icon-light.png  # Light mode logo
+│   └── header-icon-dark.png   # Dark mode logo
 │
-├── docx2html.py              # Python converter (core logic)
-├── build-app.sh              # Builds Python executable with PyInstaller
-├── dist/                     # Built Python executable
-│   └── docx2html
-├── requirements.txt          # Python dependencies
-├── config.json               # Example configuration
-└── aa-test.docx              # Test file
+├── makehtml.py                # Python converter (core logic)
+├── build-app.sh               # Builds Python executable with PyInstaller
+├── dist/                      # Built Python executable
+│   └── makehtml
+├── requirements.txt           # Python dependencies
+└── config.json                # Example configuration
 ```
 
 ## Quick Start
@@ -30,12 +29,12 @@ docx-html/
 ./build-app.sh
 ```
 
-This creates `dist/docx2html` executable.
+This creates `dist/makehtml` executable.
 
 ### 2. Build the Native macOS App
 
 ```bash
-cd DOCX2HTML-Swift
+cd makeHTML-Swift
 
 # Accept Xcode license (one-time)
 sudo xcodebuild -license
@@ -44,15 +43,16 @@ sudo xcodebuild -license
 ./build.sh
 
 # Run it
-open build/DOCX2HTML.app
+open build/makeHTML.app
 ```
 
 ### 3. Use the App
 
 1. Drop a `.docx` file onto the app window
 2. See live HTML preview with custom CSS styling
-3. Click "Open HTML" to edit the output in VS Code
-4. Click "Edit preview.css" to customize preview styling
+3. Check code snippets to append custom code to HTML
+4. Click "Open HTML" to edit the output in VS Code
+5. Click "Edit preview.css" to customize preview styling
 
 ## Features
 
@@ -62,6 +62,8 @@ open build/DOCX2HTML.app
 - 🔄 **Hot Reload** - Update CSS and see changes instantly
 - 💻 **VS Code Integration** - Open files directly in editor
 - 🚀 **Native Performance** - Small bundle (~10 MB)
+- 📝 **Code Snippets** - Append custom code to generated HTML
+- 🌓 **Adaptive Logo** - Switches between light/dark mode images
 
 ### Python Converter
 - 📄 **Clean HTML Output** - Configurable paragraph and heading tags
@@ -75,7 +77,7 @@ open build/DOCX2HTML.app
 The app creates two configuration files:
 
 ### 1. Conversion Config
-**Location:** `~/Library/Application Support/DOCX2HTML/config.json`
+**Location:** `~/Library/Application Support/makeHTML/config.json`
 
 Controls how DOCX files are converted:
 ```json
@@ -86,12 +88,19 @@ Controls how DOCX files are converted:
   },
   "special_characters": [...],
   "replacements": [...],
-  "quote_detection": {...}
+  "quote_detection": {...},
+  "code_snippets": [
+    {
+      "name": "Google Analytics",
+      "code": "<!-- GA code here -->",
+      "enabled": false
+    }
+  ]
 }
 ```
 
 ### 2. Preview Stylesheet
-**Location:** `~/Library/Application Support/DOCX2HTML/preview.css`
+**Location:** `~/Library/Application Support/makeHTML/preview.css`
 
 Controls how HTML appears in the app preview:
 - Typography styling
@@ -101,11 +110,31 @@ Controls how HTML appears in the app preview:
 - Link colors
 - And more...
 
+## Code Snippets Feature
+
+Add custom HTML/JavaScript to your converted files:
+
+1. Edit `~/Library/Application Support/makeHTML/config.json`
+2. Add snippets to the `code_snippets` array
+3. Check the snippet checkbox in the app UI
+4. Convert a DOCX file - the snippet code is appended to the HTML
+
+Example snippet:
+```json
+{
+  "name": "Google Analytics",
+  "code": "<script>\n  // GA tracking code\n</script>",
+  "enabled": false
+}
+```
+
+The app will show a checkbox: "Add Google Analytics to HTML"
+
 ## Development
 
 ### Python Converter
 
-**Edit:** `docx2html.py`
+**Edit:** `makehtml.py`
 
 **Rebuild:**
 ```bash
@@ -114,22 +143,22 @@ Controls how HTML appears in the app preview:
 
 **Test:**
 ```bash
-./dist/docx2html input.docx -o output.html
+./dist/makehtml input.docx -o output.html
 ```
 
 ### Swift App
 
-**Edit:** Files in `DOCX2HTML-Swift/`
+**Edit:** Files in `makeHTML-Swift/`
 
 **Rebuild:**
 ```bash
-cd DOCX2HTML-Swift
+cd makeHTML-Swift
 ./build.sh
 ```
 
 **Run:**
 ```bash
-open build/DOCX2HTML.app
+open build/makeHTML.app
 ```
 
 ## Requirements
@@ -143,50 +172,35 @@ open build/DOCX2HTML.app
 
 The project uses a two-layer architecture:
 
-1. **Python Converter** (`docx2html.py`)
+1. **Python Converter** (`makehtml.py`)
    - Handles DOCX parsing with python-docx
    - Processes text, formatting, and replacements
    - Generates clean HTML output
    - Bundled as standalone executable
 
-2. **Swift GUI** (`DOCX2HTML-Swift/`)
+2. **Swift GUI** (`makeHTML-Swift/`)
    - Native macOS interface
    - Calls Python executable via Process()
    - Renders HTML in WKWebView
    - Manages configuration files
+   - Appends code snippets to output
 
 This approach combines:
 - Python's rich DOCX processing ecosystem
 - Swift's native macOS UI capabilities
-- Small bundle size (~10 MB vs ~50+ MB with Platypus)
-- Working config buttons without browser limitations
-
-## Why This Approach?
-
-**Previous (Platypus):**
-- Python → PyInstaller → Platypus wrapper
-- 3 layers of abstraction
-- Large bundle size (50+ MB)
-- WebView button issues (file:// navigation problems)
-- Complex build process
-
-**Current (Native Swift):**
-- Python → PyInstaller + Swift GUI
-- 2 clean layers
 - Small bundle size (~10 MB)
-- Native buttons that work perfectly
-- Simple, maintainable build
+- Working config buttons without browser limitations
 
 ## Testing
 
 ### Test Conversion
 ```bash
-./dist/docx2html aa-test.docx -o output.html
+./dist/makehtml test.docx -o output.html
 ```
 
 ### Test App
 1. Build the app (see Quick Start)
-2. Drop `aa-test.docx` onto the app
+2. Drop a `.docx` file onto the app
 3. Verify preview appears
 4. Test all buttons:
    - Open HTML
@@ -194,16 +208,20 @@ This approach combines:
    - Edit config.json
    - Edit preview.css
    - Reload
+5. Test code snippets:
+   - Check a snippet checkbox
+   - Convert a file
+   - Verify snippet code is in the HTML
 
 ## Troubleshooting
 
 ### "Cannot verify developer" error
 ```bash
-xattr -dr com.apple.quarantine DOCX2HTML-Swift/build/DOCX2HTML.app
+xattr -dr com.apple.quarantine makeHTML-Swift/build/makeHTML.app
 ```
 
 ### Converter not found
-Make sure you ran `./build-app.sh` first to create `dist/docx2html`
+Make sure you ran `./build-app.sh` first to create `dist/makehtml`
 
 ### VS Code button doesn't work
 Install VS Code CLI:
@@ -213,6 +231,9 @@ Install VS Code CLI:
 
 ### Preview not updating
 Click the "Reload" button after editing `preview.css`
+
+### Images not showing in header
+Make sure `header-icon-light.png` and `header-icon-dark.png` are in the `makeHTML-Swift/` directory before building.
 
 ## License
 

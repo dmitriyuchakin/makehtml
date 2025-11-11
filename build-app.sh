@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# Automated build script for DOCX2HTML macOS app
-# This script builds the complete application using PyInstaller and Platypus
+# Automated build script for makeHTML macOS app
+# This script builds the complete application using PyInstaller
 #
 
 set -e  # Exit on error
 
 echo "========================================"
-echo "DOCX2HTML macOS App Builder"
+echo "makeHTML macOS App Builder"
 echo "========================================"
 echo ""
 
@@ -59,7 +59,7 @@ echo ""
 # Step 2: Clean previous builds
 echo -e "${YELLOW}[2/5]${NC} Cleaning previous builds..."
 rm -rf build dist
-rm -f docx2html.spec
+rm -f makehtml.spec
 echo -e "${GREEN}✓${NC} Cleaned build directories"
 echo ""
 
@@ -75,7 +75,7 @@ else
     echo "  Using: python3 -m PyInstaller"
 fi
 
-$PYINSTALLER_CMD --name docx2html \
+$PYINSTALLER_CMD --name makehtml \
     --onefile \
     --console \
     --hidden-import=docx \
@@ -86,11 +86,11 @@ $PYINSTALLER_CMD --name docx2html \
     --hidden-import=lxml \
     --hidden-import=lxml.etree \
     --hidden-import=lxml._elementpath \
-    docx2html.py
+    makehtml.py
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓${NC} PyInstaller build successful"
-    echo -e "  Executable created at: ${GREEN}dist/docx2html${NC}"
+    echo -e "  Executable created at: ${GREEN}dist/makehtml${NC}"
 else
     echo -e "${RED}✗${NC} PyInstaller build failed"
     exit 1
@@ -99,8 +99,8 @@ echo ""
 
 # Step 4: Test the executable
 echo -e "${YELLOW}[4/5]${NC} Testing executable..."
-if [ -f "dist/docx2html" ]; then
-    ./dist/docx2html --help > /dev/null 2>&1
+if [ -f "dist/makehtml" ]; then
+    ./dist/makehtml --help > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓${NC} Executable works correctly"
     else
@@ -112,48 +112,12 @@ else
 fi
 echo ""
 
-# Step 5: Build Platypus app (if available)
-if [ "$PLATYPUS_AVAILABLE" = true ]; then
-    echo -e "${YELLOW}[5/5]${NC} Building Platypus app..."
-
-    # Create the app with Platypus CLI
-    platypus \
-        --name "DOCX2HTML" \
-        --interface "Text Window" \
-        --interpreter "/bin/bash" \
-        --app-icon "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/DocumentIcon.icns" \
-        --author "DOCX2HTML" \
-        --bundle-identifier "com.docx2html.converter" \
-        --app-version "1.0.0" \
-        --droppable \
-        --accept-files \
-        --accept-text \
-        --suffixes "docx" \
-        --bundled-file "dist/docx2html" \
-        platypus-wrapper.sh \
-        "dist/DOCX2HTML.app"
-
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓${NC} Platypus app created successfully"
-        echo -e "  App bundle: ${GREEN}dist/DOCX2HTML.app${NC}"
-    else
-        echo -e "${RED}✗${NC} Platypus app creation failed"
-    fi
-else
-    echo -e "${YELLOW}[5/5]${NC} Skipping Platypus app creation (not installed)"
-    echo ""
-    echo -e "${YELLOW}Manual Steps Required:${NC}"
-    echo "  1. Install Platypus: brew install platypus"
-    echo "  2. Open Platypus app"
-    echo "  3. Configure with these settings:"
-    echo "     - Script Path: $SCRIPT_DIR/platypus-wrapper.sh"
-    echo "     - Interface: Text Window"
-    echo "     - Accept dropped items: ✓"
-    echo "     - Accept dropped files: ✓"
-    echo "     - File Types: docx"
-    echo "     - Bundled Files: Add dist/docx2html"
-    echo "  4. Click 'Create App'"
-fi
+# Step 5: Done (Platypus removed, using Swift app instead)
+echo -e "${YELLOW}[5/5]${NC} Python executable complete"
+echo ""
+echo -e "${GREEN}✓${NC} Python converter ready"
+echo "  Next step: Build the Swift app with:"
+echo "  cd makeHTML-Swift && ./build.sh"
 
 echo ""
 echo "========================================"
@@ -161,13 +125,10 @@ echo -e "${GREEN}Build Complete!${NC}"
 echo "========================================"
 echo ""
 echo "Output files:"
-echo "  • Standalone executable: dist/docx2html"
-if [ "$PLATYPUS_AVAILABLE" = true ]; then
-    echo "  • macOS app bundle:     dist/DOCX2HTML.app"
-fi
+echo "  • Standalone executable: dist/makehtml"
 echo ""
 echo "Configuration file location:"
-echo "  ~/Library/Application Support/DOCX2HTML/config.json"
+echo "  ~/Library/Application Support/makeHTML/config.json"
 echo ""
 echo "The app will create the config file on first run."
 echo "Users can edit it with any text editor to customize conversion."
