@@ -232,55 +232,43 @@ struct ContentView: View {
 
         let outputURL = url.deletingPathExtension().appendingPathExtension("html")
 
-        // Get path to bundled converter
-        guard let converterPath = Bundle.main.path(forResource: "makehtml", ofType: nil) else {
-            statusMessage = "Error: Converter not found in bundle"
-            isProcessing = false
-            return
+        // Load config
+        let configFile = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/makeHTML/config.json")
+
+        // Create default config if it doesn't exist
+        if !FileManager.default.fileExists(atPath: configFile.path) {
+            createDefaultConfig(at: configFile)
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: converterPath)
-        process.arguments = [url.path, "-o", outputURL.path]
+        // Perform conversion in background
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                // Load config
+                let configData = try Data(contentsOf: configFile)
+                let config = try JSONDecoder().decode(ConversionConfig.self, from: configData)
 
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
+                // Create converter and convert
+                let converter = DocxConverter(config: config)
+                let html = try converter.convert(docxURL: url)
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+                // Append code snippets
+                let finalHTML = self.appendCodeSnippets(to: html)
 
-            if process.terminationStatus == 0 {
-                // Success - read the HTML
-                if let htmlString = try? String(contentsOf: outputURL, encoding: .utf8) {
-                    // Append code snippets if any are enabled
-                    let finalHTML = self.appendCodeSnippets(to: htmlString)
+                // Save to file
+                try finalHTML.write(to: outputURL, atomically: true, encoding: .utf8)
 
-                    // Save the modified HTML back to file
-                    try? finalHTML.write(to: outputURL, atomically: true, encoding: .utf8)
-
-                    DispatchQueue.main.async {
-                        self.statusMessage = "✓ Converted successfully: \(outputURL.lastPathComponent)"
-                        self.htmlContent = finalHTML
-                        self.lastConvertedFile = outputURL
-                        self.isProcessing = false
-                    }
-                }
-            } else {
-                // Error
-                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
                 DispatchQueue.main.async {
-                    self.statusMessage = "✗ Error: \(errorMessage)"
+                    self.statusMessage = "✓ Converted successfully: \(outputURL.lastPathComponent)"
+                    self.htmlContent = finalHTML
+                    self.lastConvertedFile = outputURL
                     self.isProcessing = false
                 }
-            }
-        } catch {
-            DispatchQueue.main.async {
-                self.statusMessage = "✗ Error: \(error.localizedDescription)"
-                self.isProcessing = false
+            } catch {
+                DispatchQueue.main.async {
+                    self.statusMessage = "✗ Error: \(error.localizedDescription)"
+                    self.isProcessing = false
+                }
             }
         }
     }

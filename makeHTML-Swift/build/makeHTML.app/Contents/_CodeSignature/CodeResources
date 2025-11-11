@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/config.json</key>
 		<data>
-		zIEGmm8C/mtjUkb2m3INeW3z9Y4=
+		ZO1dQ8Ye91/RPJ+RkZZ5F0kxqCg=
 		</data>
 		<key>Resources/header-icon-dark-600.png</key>
 		<data>
@@ -19,10 +19,6 @@
 		<key>Resources/makeHTML.icns</key>
 		<data>
 		xiWjh+VslvWV7hNOmGkuhZX+6Fc=
-		</data>
-		<key>Resources/makehtml</key>
-		<data>
-		ik74Ht3aQPzWcOkUMudQ7ijcdgI=
 		</data>
 		<key>Resources/preview.css</key>
 		<data>
@@ -47,7 +43,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			njMAKQYO1Bx/WaR7MLEf8a/wi4Z5Ke8QSHlFIKsW5D0=
+			s8joGLVOnPYfPIWfYBFk0mqtJLQNYVoiaXSJadhokME=
 			</data>
 		</dict>
 		<key>Resources/header-icon-dark-600.png</key>
@@ -69,13 +65,6 @@
 			<key>hash2</key>
 			<data>
 			Y3i3KYbc6D1p1CSSD5GQeAeEuIx503rCnShSLQ6MEzc=
-			</data>
-		</dict>
-		<key>Resources/makehtml</key>
-		<dict>
-			<key>hash2</key>
-			<data>
-			flH125XRGMlZJrq4DZba3pUy7vIVskRgrK2vJIzuEh0=
 			</data>
 		</dict>
 		<key>Resources/preview.css</key>

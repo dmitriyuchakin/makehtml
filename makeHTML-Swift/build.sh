@@ -21,13 +21,7 @@ if ! command -v xcodebuild &> /dev/null; then
     exit 1
 fi
 
-# Check if converter exists
-CONVERTER_PATH="../dist/makehtml"
-if [ ! -f "$CONVERTER_PATH" ]; then
-    echo "Error: Converter not found at $CONVERTER_PATH"
-    echo "Please run ../build-app.sh first to create the Python executable"
-    exit 1
-fi
+# No Python converter needed anymore - using native Swift!
 
 echo ""
 echo "[1/4] Creating Xcode project..."
@@ -79,16 +73,13 @@ swiftc -o "${APP_MACOS}/${APP_NAME}" \
     -framework AppKit \
     -framework UniformTypeIdentifiers \
     makeHTMLApp.swift \
-    ContentView.swift
+    ContentView.swift \
+    DocxConverter.swift
 
 echo "✓ Swift compilation complete"
 
 echo ""
 echo "[3/4] Bundling resources..."
-
-# Copy the Python converter
-cp "$CONVERTER_PATH" "$APP_RESOURCES/makehtml"
-chmod +x "$APP_RESOURCES/makehtml"
 
 # Copy header images
 if [ -f "header-icon-light-600.png" ]; then

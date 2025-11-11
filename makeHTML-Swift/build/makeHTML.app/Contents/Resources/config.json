@@ -52,14 +52,6 @@
     "wrap_tag": "div class=\"blockquote\"",
     "quote_types": ["\"", "\u201C", "\u201D", "\u2018", "\u2019"]
   },
-  "link_handling": {
-    "enabled": true,
-    "add_target_blank": true,
-    "exception_domains": [
-      "news.aa.com",
-      "jetnet.aa.com"
-    ]
-  },
   "code_snippets": [
     {
       "name": "Photo grid 3x1",
