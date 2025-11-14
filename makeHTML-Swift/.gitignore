@@ -1,0 +1,31 @@
+# Build outputs
+build/
+.build/
+*.app
+
+# Temporary build files
+tidy-binary
+*.xcodeproj
+
+# Compiled test binaries
+test-batch-cli
+test-validation-cli
+test-xml-parsing
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Xcode
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Claude Code settings (user-specific)
+../.claude/

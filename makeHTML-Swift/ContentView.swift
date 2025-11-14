@@ -47,6 +47,13 @@ struct HTMLPreviewView: NSViewRepresentable {
     }
 }
 
+// Conversion status for UI feedback
+enum ConversionStatus {
+    case success
+    case warning(count: Int)
+    case error(message: String)
+}
+
 struct ContentView: View {
     @State private var isTargeted = false
     @State private var statusMessage = "Drop a .docx file here to convert"
@@ -55,6 +62,11 @@ struct ContentView: View {
     @State private var cssContent: String = ""
     @State private var isProcessing = false
     @State private var codeSnippets: [CodeSnippet] = []
+    @State private var conversionStatus: ConversionStatus?
+    private let logger = ConversionLogger()
+
+    // DEBUG: Set to true to force warnings on every conversion
+    private let debugForceWarnings = false
 
     var body: some View {
         ScrollView {
@@ -96,9 +108,65 @@ struct ContentView: View {
                             .padding(.bottom, 8)
                     }
 
-                    Text(statusMessage)
-                        .font(.headline)
-                        .foregroundColor(isTargeted ? .blue : .primary)
+                    // Conversion Status Display at top
+                    if let status = conversionStatus {
+                        VStack(spacing: 8) {
+                            switch status {
+                            case .success:
+                                HStack(spacing: 6) {
+                                    Text(statusMessage)
+                                        .font(.headline)
+                                        .foregroundColor(.green)
+                                }
+
+                            case .warning(let count):
+                                VStack(spacing: 8) {
+                                    HStack(spacing: 6) {
+                                        Text("Completed with \(count) warning\(count == 1 ? "" : "s")")
+                                            .font(.headline)
+                                            .foregroundColor(.orange)
+                                    }
+
+                                    Button(action: {
+                                        logger.openTodayLog()
+                                    }) {
+                                        Label("View Log File", systemImage: "doc.text.magnifyingglass")
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(.blue)
+                                }
+
+                            case .error(let message):
+                                VStack(spacing: 8) {
+                                    HStack(spacing: 6) {
+                                        Text("Conversion failed")
+                                            .font(.headline)
+                                            .foregroundColor(.red)
+                                    }
+
+                                    Text(message)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+
+                                    Button(action: {
+                                        logger.openTodayLog()
+                                    }) {
+                                        Label("View Log File", systemImage: "doc.text.magnifyingglass")
+                                            .font(.caption)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(.blue)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        Text(statusMessage)
+                            .font(.headline)
+                            .foregroundColor(isTargeted ? .blue : .primary)
+                    }
 
                     if let htmlContent = htmlContent {
                         VStack(alignment: .leading, spacing: 8) {
@@ -137,11 +205,17 @@ struct ContentView: View {
                 }
                 .padding(40)
             }
-            .frame(minHeight: htmlContent != nil ? 500 : 300)
+            .frame(minHeight: htmlContent != nil ? 580 : 300)
             .padding(.horizontal, 40)
             .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
                 handleDrop(providers: providers)
                 return true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openDocxFile)) { notification in
+                // Handle file opened via "Open With" or drag-to-dock
+                if let url = notification.object as? URL {
+                    convertFile(url: url)
+                }
             }
 
             Divider()
@@ -229,6 +303,7 @@ struct ContentView: View {
         isProcessing = true
         statusMessage = "Converting \(url.lastPathComponent)..."
         htmlContent = nil
+        conversionStatus = nil
 
         let outputURL = url.deletingPathExtension().appendingPathExtension("html")
 
@@ -243,31 +318,87 @@ struct ContentView: View {
 
         // Perform conversion in background
         DispatchQueue.global(qos: .userInitiated).async {
+            let startTime = Date()
+
             do {
+                // Get file size for logging
+                let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
+                let fileSize = fileAttributes[.size] as? Int64 ?? 0
+
+                // Log conversion start
+                self.logger.logConversionStart(sourceURL: url, fileSize: fileSize)
+
                 // Load config
                 let configData = try Data(contentsOf: configFile)
                 let config = try JSONDecoder().decode(ConversionConfig.self, from: configData)
 
-                // Create converter and convert
+                // Create converter
+                self.logger.logStep("Loading configuration...")
                 let converter = DocxConverter(config: config)
+
+                // Convert
+                self.logger.logStep("Starting conversion...")
+                let stepStart = Date()
                 let html = try converter.convert(docxURL: url)
+                let conversionDuration = Date().timeIntervalSince(stepStart)
+                self.logger.logStep("Conversion completed", duration: conversionDuration)
+
+                // Validate conversion
+                self.logger.logStep("Validating conversion...")
+                let validationStart = Date()
+                let validation = try converter.validateConversion(docxURL: url, htmlOutput: html)
+                let validationDuration = Date().timeIntervalSince(validationStart)
+                self.logger.logStep("Validation completed", duration: validationDuration)
+
+                // Log validation results
+                self.logger.logValidationResults(validation, docxText: validation.docxText, htmlText: validation.htmlText)
 
                 // Append code snippets
                 let finalHTML = self.appendCodeSnippets(to: html)
 
+                // Log success
+                self.logger.logConversionSuccess(htmlSize: finalHTML.count, outputURL: outputURL)
+
                 // Save to file
                 try finalHTML.write(to: outputURL, atomically: true, encoding: .utf8)
 
+                // Log total duration
+                let totalDuration = Date().timeIntervalSince(startTime)
+                self.logger.logConversionEnd(totalDuration: totalDuration)
+
+                // Update UI
                 DispatchQueue.main.async {
                     self.statusMessage = "✓ Converted successfully: \(outputURL.lastPathComponent)"
                     self.htmlContent = finalHTML
                     self.lastConvertedFile = outputURL
                     self.isProcessing = false
+
+                    // Set conversion status
+                    if self.debugForceWarnings {
+                        // DEBUG MODE: Force warnings for UI testing
+                        self.conversionStatus = .warning(count: 3)
+                    } else if validation.isValid {
+                        self.conversionStatus = .success
+                        // Auto-hide success after 10 seconds
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                            if case .success = self.conversionStatus {
+                                self.conversionStatus = nil
+                            }
+                        }
+                    } else {
+                        self.conversionStatus = .warning(count: validation.differences.count)
+                    }
                 }
             } catch {
+                // Log error
+                self.logger.logError(error, context: "Converting \(url.lastPathComponent)")
+                let totalDuration = Date().timeIntervalSince(startTime)
+                self.logger.logConversionEnd(totalDuration: totalDuration)
+
                 DispatchQueue.main.async {
                     self.statusMessage = "✗ Error: \(error.localizedDescription)"
                     self.isProcessing = false
+                    self.conversionStatus = .error(message: error.localizedDescription)
                 }
             }
         }

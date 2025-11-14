@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/config.json</key>
 		<data>
-		ZO1dQ8Ye91/RPJ+RkZZ5F0kxqCg=
+		GoF7mHpnmpClpO8w1K9MZLD5J6w=
 		</data>
 		<key>Resources/header-icon-dark-600.png</key>
 		<data>
@@ -22,11 +22,15 @@
 		</data>
 		<key>Resources/preview.css</key>
 		<data>
-		P1bzipuER2NZA3rzcQfBTtfJlA0=
+		2fAmI4LT8YP77c0IYZQ4mvoo1E4=
 		</data>
 		<key>Resources/snippets/embed-container.html</key>
 		<data>
 		/F7Ix5S0UemoZzh4J0S7oujZeNk=
+		</data>
+		<key>Resources/snippets/photo-grid-2x1.html</key>
+		<data>
+		aa8G5Po1+EnaGkh/EbXGTOkRp/w=
 		</data>
 		<key>Resources/snippets/photo-grid-3x1.html</key>
 		<data>
@@ -36,6 +40,10 @@
 		<data>
 		0y0XkTbMepRmwgmVusJm+XZINJY=
 		</data>
+		<key>Resources/tidy</key>
+		<data>
+		d6OTx951T1TGqa2eBaUp7jcl9GA=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -43,7 +51,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			s8joGLVOnPYfPIWfYBFk0mqtJLQNYVoiaXSJadhokME=
+			tRomvOmZCi+Dae8o4sKDHNZnPCzzrxAG2mjOQQHG7Y4=
 			</data>
 		</dict>
 		<key>Resources/header-icon-dark-600.png</key>
@@ -71,7 +79,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			bsxzknzRo/T6AuJpbsdbBeVsJntBkbn33YlZ4Tqp6+A=
+			8g5cFyiYBp+CG7ZRm9YbP1wdJANNQckpShYpcm7pLBU=
 			</data>
 		</dict>
 		<key>Resources/snippets/embed-container.html</key>
@@ -79,6 +87,13 @@
 			<key>hash2</key>
 			<data>
 			GV46KuoSHHAppOu2B0aiR4fx7sAvYlvQJKZSQYIQ3M4=
+			</data>
+		</dict>
+		<key>Resources/snippets/photo-grid-2x1.html</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			oZ8BmLob7IUR49A7CmMd9AxdwN1MExrU7DSgUxndBQk=
 			</data>
 		</dict>
 		<key>Resources/snippets/photo-grid-3x1.html</key>
@@ -93,6 +108,13 @@
 			<key>hash2</key>
 			<data>
 			XHg2zXVdQkkAFiNIhV8MT+O1/oKbk2nBY+Q6EAG9wWs=
+			</data>
+		</dict>
+		<key>Resources/tidy</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			fAKdf0REedVPm8Bwa8yfbMBvx4vjcpruE1M2jf9yKvw=
 			</data>
 		</dict>
 	</dict>

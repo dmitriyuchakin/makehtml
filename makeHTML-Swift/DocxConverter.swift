@@ -1,5 +1,30 @@
 import Foundation
 
+// MARK: - Validation Models
+
+/// Result of validation comparing DOCX plain text to HTML output
+struct ValidationResult {
+    let isValid: Bool
+    let differences: [TextDifference]
+    let docxText: String
+    let htmlText: String
+}
+
+/// Type of difference found during validation
+enum DifferenceType {
+    case missing    // Text present in DOCX but missing from HTML
+    case extra      // Extra text in HTML not present in DOCX
+    case different  // Text differs between DOCX and HTML
+}
+
+/// Represents a difference found during validation
+struct TextDifference {
+    let type: DifferenceType
+    let position: Int
+    let expected: String?  // Text from DOCX
+    let actual: String?    // Text from HTML
+}
+
 // MARK: - Configuration Models
 
 struct ConversionConfig: Codable {
@@ -7,14 +32,18 @@ struct ConversionConfig: Codable {
     let specialCharacters: [SpecialCharacter]
     let replacements: [Replacement]
     let quoteDetection: QuoteDetection
+    let linkHandling: LinkHandling
     let codeSnippets: [ConfigCodeSnippet]
+    let tidyFormatting: TidyFormatting?  // Optional for backward compatibility
 
     enum CodingKeys: String, CodingKey {
         case output
         case specialCharacters = "special_characters"
         case replacements
         case quoteDetection = "quote_detection"
+        case linkHandling = "link_handling"
         case codeSnippets = "code_snippets"
+        case tidyFormatting = "tidy_formatting"
     }
 }
 
@@ -66,10 +95,40 @@ struct QuoteDetection: Codable {
     }
 }
 
+struct LinkHandling: Codable {
+    let enabled: Bool
+    let addTargetBlank: Bool
+    let exceptionDomains: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case addTargetBlank = "add_target_blank"
+        case exceptionDomains = "exception_domains"
+    }
+}
+
 struct ConfigCodeSnippet: Codable {
     let name: String
     let file: String
     let enabled: Bool
+}
+
+struct TidyFormatting: Codable {
+    let enabled: Bool
+    let indentSpaces: Int
+    let wrapLength: Int
+    let verticalSpace: Bool
+    let showBodyOnly: Bool
+    let customOptions: [String]?  // Array of additional tidy command-line options
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case indentSpaces = "indent_spaces"
+        case wrapLength = "wrap_length"
+        case verticalSpace = "vertical_space"
+        case showBodyOnly = "show_body_only"
+        case customOptions = "custom_options"
+    }
 }
 
 // MARK: - DOCX XML Models
@@ -95,6 +154,16 @@ class DocxConverter {
     }
 
     func convert(docxURL: URL) throws -> String {
+        let document = try parseDocument(from: docxURL)
+        return try renderDocument(document)
+    }
+
+    func extractPlainText(docxURL: URL) throws -> String {
+        let document = try parseDocument(from: docxURL)
+        return extractPlainTextFromDocument(document)
+    }
+
+    private func parseDocument(from docxURL: URL) throws -> DocxDocument {
         // Extract DOCX (it's a ZIP file)
         let tempDir = try extractDocx(from: docxURL)
         defer {
@@ -104,33 +173,30 @@ class DocxConverter {
         // Parse document.xml
         let documentXMLPath = tempDir.appendingPathComponent("word/document.xml")
         let documentData = try Data(contentsOf: documentXMLPath)
-        let xmlDoc = try XMLDocument(data: documentData)
 
         // Get relationships for hyperlinks
         let relsPath = tempDir.appendingPathComponent("word/_rels/document.xml.rels")
         let relationships = try parseRelationships(at: relsPath)
 
-        // Process document body
-        guard let bodyElement = try xmlDoc.rootElement()?.nodes(forXPath: "//w:body").first as? XMLElement else {
-            throw ConversionError.missingBody
-        }
+        // Parse document using XMLParser (preserves whitespace!)
+        let parser = DocxXMLParser()
+        return try parser.parse(documentData: documentData, relationships: relationships)
+    }
 
+    private func renderDocument(_ document: DocxDocument) throws -> String {
+
+        // Convert parsed document to HTML
         var htmlParts: [String] = []
         var currentListItems: [ListItem] = []
 
-        // Process each element in the body
-        for child in bodyElement.children ?? [] {
-            guard let element = child as? XMLElement else { continue }
-
-            let name = element.localName ?? ""
-
-            switch name {
-            case "p": // Paragraph
-                let paragraph = try processParagraph(element, relationships: relationships)
-
-                if let listItem = paragraph.listItem {
-                    // This is a list item
-                    currentListItems.append(listItem)
+        for element in document.elements {
+            switch element {
+            case .paragraph(let paragraph):
+                // Check if it's a list item
+                if let listLevel = paragraph.listLevel {
+                    let text = renderParagraphContents(paragraph.contents)
+                    let type: ListType = paragraph.listType == "numbered" ? .numbered : .bullet
+                    currentListItems.append(ListItem(level: listLevel, type: type, text: text))
                 } else {
                     // Close any open list
                     if !currentListItems.isEmpty {
@@ -139,25 +205,23 @@ class DocxConverter {
                     }
 
                     // Add regular paragraph
-                    if let html = paragraph.html {
+                    let html = renderParagraph(paragraph)
+                    if !html.isEmpty {
                         htmlParts.append(html)
                     }
                 }
 
-            case "tbl": // Table
+            case .table(let table):
                 // Close any open list
                 if !currentListItems.isEmpty {
                     htmlParts.append(createListHTML(from: currentListItems))
                     currentListItems.removeAll()
                 }
 
-                let tableHTML = try processTable(element)
+                let tableHTML = renderTable(table)
                 if !tableHTML.isEmpty {
                     htmlParts.append(tableHTML)
                 }
-
-            default:
-                break
             }
         }
 
@@ -173,7 +237,517 @@ class DocxConverter {
         html = applySpecialCharacters(to: html)
         html = applyReplacements(to: html)
 
+        // Format HTML with LibTidy
+        html = formatHTML(html)
+
         return html
+    }
+
+    // MARK: - HTML Formatting
+
+    /// Format HTML using bundled tidy binary for clean, consistent output
+    private func formatHTML(_ html: String) -> String {
+        // Check if tidy formatting is enabled in config
+        guard let tidyConfig = config.tidyFormatting, tidyConfig.enabled else {
+            // Tidy formatting is disabled, return original HTML
+            return html
+        }
+
+        // Try to find bundled tidy binary first
+        var tidyPath: String?
+
+        // Check if tidy is bundled in app resources
+        if let resourcePath = Bundle.main.resourcePath {
+            let bundledTidy = "\(resourcePath)/tidy"
+            if FileManager.default.fileExists(atPath: bundledTidy) {
+                tidyPath = bundledTidy
+            }
+        }
+
+        // Fallback to system tidy if bundled version not found
+        if tidyPath == nil {
+            tidyPath = "/opt/homebrew/bin/tidy"
+
+            // Check if system tidy exists
+            if !FileManager.default.fileExists(atPath: tidyPath!) {
+                // Try alternate locations
+                let alternatePaths = [
+                    "/usr/local/bin/tidy",
+                    "/usr/bin/tidy"
+                ]
+
+                for path in alternatePaths {
+                    if FileManager.default.fileExists(atPath: path) {
+                        tidyPath = path
+                        break
+                    }
+                }
+            }
+        }
+
+        guard let validTidyPath = tidyPath,
+              FileManager.default.fileExists(atPath: validTidyPath) else {
+            // If tidy not found, return original HTML
+            return html
+        }
+
+        // Build tidy arguments from config
+        var arguments: [String] = [
+            "--indent", "auto",
+            "--indent-spaces", "\(tidyConfig.indentSpaces)",
+            "--wrap", "\(tidyConfig.wrapLength)",
+            "--quiet", "yes",
+            "--show-warnings", "no",
+            "--drop-empty-elements", "no",
+            "--tidy-mark", "no"
+        ]
+
+        // Add vertical space option
+        if tidyConfig.verticalSpace {
+            arguments += ["--vertical-space", "yes"]
+        } else {
+            arguments += ["--vertical-space", "no"]
+        }
+
+        // Add show-body-only option
+        if tidyConfig.showBodyOnly {
+            arguments += ["--show-body-only", "yes"]
+        } else {
+            arguments += ["--show-body-only", "no"]
+        }
+
+        // Add custom options if provided
+        if let customOptions = tidyConfig.customOptions {
+            arguments += customOptions
+        }
+
+        // Run tidy on the HTML
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: validTidyPath)
+        process.arguments = arguments
+
+        let inputPipe = Pipe()
+        let outputPipe = Pipe()
+
+        process.standardInput = inputPipe
+        process.standardOutput = outputPipe
+        process.standardError = Pipe()  // Discard errors
+
+        do {
+            try process.run()
+
+            // Write HTML to stdin
+            if let data = html.data(using: .utf8) {
+                inputPipe.fileHandleForWriting.write(data)
+                inputPipe.fileHandleForWriting.closeFile()
+            }
+
+            // Read formatted output
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+
+            if let formatted = String(data: outputData, encoding: .utf8),
+               !formatted.isEmpty {
+                return formatted.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        } catch {
+            // If tidy fails, return original HTML
+            return html
+        }
+
+        return html
+    }
+
+    private func extractPlainTextFromDocument(_ document: DocxDocument) -> String {
+        var textParts: [String] = []
+
+        for element in document.elements {
+            switch element {
+            case .paragraph(let paragraph):
+                let text = extractPlainTextFromParagraph(paragraph)
+                if !text.isEmpty {
+                    textParts.append(text)
+                }
+
+            case .table(let table):
+                for row in table.rows {
+                    for cell in row.cells {
+                        if !cell.text.isEmpty {
+                            textParts.append(cell.text)
+                        }
+                    }
+                }
+            }
+        }
+
+        return textParts.joined(separator: "\n")
+    }
+
+    private func extractPlainTextFromParagraph(_ paragraph: DocxParagraph) -> String {
+        var texts: [String] = []
+
+        for content in paragraph.contents {
+            switch content {
+            case .run(let run):
+                texts.append(run.text)
+            case .hyperlink(let hyperlink):
+                texts.append(hyperlink.text)
+            }
+        }
+
+        return texts.joined()
+    }
+
+    // MARK: - Validation
+
+    func validateConversion(docxURL: URL, htmlOutput: String) throws -> ValidationResult {
+        // Extract plain text from DOCX
+        let docxPlainText = try extractPlainText(docxURL: docxURL)
+
+        // Extract plain text from HTML
+        let htmlPlainText = stripHTMLTags(from: htmlOutput)
+
+        // Normalize whitespace for comparison (collapse multiple spaces/newlines)
+        let normalizedDocx = normalizeWhitespace(docxPlainText)
+        let normalizedHTML = normalizeWhitespace(htmlPlainText)
+
+        // Compare
+        if normalizedDocx == normalizedHTML {
+            return ValidationResult(isValid: true, differences: [], docxText: docxPlainText, htmlText: htmlPlainText)
+        } else {
+            let diffs = findDifferences(expected: normalizedDocx, actual: normalizedHTML)
+            return ValidationResult(isValid: false, differences: diffs, docxText: docxPlainText, htmlText: htmlPlainText)
+        }
+    }
+
+    private func stripHTMLTags(from html: String) -> String {
+        var result = ""
+        var insideTag = false
+
+        for char in html {
+            if char == "<" {
+                insideTag = true
+            } else if char == ">" {
+                insideTag = false
+            } else if !insideTag {
+                result.append(char)
+            }
+        }
+
+        // Decode HTML entities
+        return decodeHTMLEntities(result)
+    }
+
+    private func decodeHTMLEntities(_ text: String) -> String {
+        var result = text
+
+        // Common HTML entities
+        let entities: [String: String] = [
+            "&amp;": "&",
+            "&lt;": "<",
+            "&gt;": ">",
+            "&quot;": "\"",
+            "&#39;": "'",
+            "&apos;": "'",
+            "&nbsp;": " "
+        ]
+
+        for (entity, replacement) in entities {
+            result = result.replacingOccurrences(of: entity, with: replacement)
+        }
+
+        return result
+    }
+
+    private func normalizeWhitespace(_ text: String) -> String {
+        // Collapse multiple spaces/newlines to single space
+        let components = text.components(separatedBy: .whitespacesAndNewlines)
+        return components.filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    private func findDifferences(expected: String, actual: String) -> [TextDifference] {
+        var differences: [TextDifference] = []
+
+        let expectedChars = Array(expected)
+        let actualChars = Array(actual)
+        let maxLen = max(expectedChars.count, actualChars.count)
+
+        var i = 0
+        while i < maxLen {
+            if i >= expectedChars.count {
+                // Extra characters in actual
+                let endIndex = min(i + 50, actualChars.count)
+                let extraText = String(actualChars[i..<endIndex])
+                differences.append(TextDifference(
+                    type: .extra,
+                    position: i,
+                    expected: nil,
+                    actual: extraText
+                ))
+                break
+            } else if i >= actualChars.count {
+                // Missing characters in actual
+                let endIndex = min(i + 50, expectedChars.count)
+                let missingText = String(expectedChars[i..<endIndex])
+                differences.append(TextDifference(
+                    type: .missing,
+                    position: i,
+                    expected: missingText,
+                    actual: nil
+                ))
+                break
+            } else if expectedChars[i] != actualChars[i] {
+                // Different character
+                let contextStart = max(0, i - 20)
+                let contextEnd = min(i + 20, min(expectedChars.count, actualChars.count))
+                let expectedContext = String(expectedChars[contextStart..<contextEnd])
+                let actualContext = String(actualChars[contextStart..<contextEnd])
+
+                differences.append(TextDifference(
+                    type: .different,
+                    position: i,
+                    expected: expectedContext,
+                    actual: actualContext
+                ))
+
+                // Skip ahead to avoid reporting every character in a mismatched section
+                i += 20
+            }
+
+            i += 1
+        }
+
+        return differences
+    }
+
+    // MARK: - Rendering Functions (XMLParser-based)
+
+    private func renderParagraph(_ paragraph: DocxParagraph) -> String {
+        let content = renderParagraphContents(paragraph.contents)
+
+        // Skip empty paragraphs
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return ""
+        }
+
+        let tag = paragraph.isHeading ? config.output.headingTag : config.output.paragraphTag
+
+        // Check for quote detection
+        if config.quoteDetection.enabled {
+            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            if shouldWrapAsQuote(trimmed) {
+                let openTag = "<\(config.quoteDetection.wrapTag)>"
+                let closeTag = "</\(config.quoteDetection.wrapTag.split(separator: " ").first ?? "div")>"
+                return "\(openTag)<\(tag)>\(content)</\(tag)>\(closeTag)"
+            }
+        }
+
+        return "<\(tag)>\(content)</\(tag)>"
+    }
+
+    private func renderParagraphContents(_ contents: [DocxParagraphContent]) -> String {
+        // First, merge consecutive runs with identical formatting
+        let mergedContents = mergeConsecutiveRuns(contents)
+
+        var result: [String] = []
+
+        for content in mergedContents {
+            switch content {
+            case .run(let run):
+                result.append(renderRun(run))
+            case .hyperlink(let hyperlink):
+                result.append(formatLink(url: hyperlink.url, text: hyperlink.text))
+            }
+        }
+
+        return result.joined()
+    }
+
+    /// Merge consecutive runs that have identical formatting
+    /// This prevents output like <strong>A</strong><strong>B</strong> and instead produces <strong>AB</strong>
+    private func mergeConsecutiveRuns(_ contents: [DocxParagraphContent]) -> [DocxParagraphContent] {
+        guard !contents.isEmpty else { return contents }
+
+        var merged: [DocxParagraphContent] = []
+        var currentRun: DocxRun?
+
+        for content in contents {
+            switch content {
+            case .run(let run):
+                if let current = currentRun {
+                    // Check if formatting matches
+                    if current.isBold == run.isBold &&
+                       current.isItalic == run.isItalic &&
+                       current.isUnderline == run.isUnderline &&
+                       current.isSuperscript == run.isSuperscript &&
+                       current.isSubscript == run.isSubscript {
+                        // Same formatting - merge the text
+                        currentRun = DocxRun(
+                            text: current.text + run.text,
+                            isBold: current.isBold,
+                            isItalic: current.isItalic,
+                            isUnderline: current.isUnderline,
+                            isSuperscript: current.isSuperscript,
+                            isSubscript: current.isSubscript
+                        )
+                    } else {
+                        // Different formatting - save current and start new
+                        merged.append(.run(current))
+                        currentRun = run
+                    }
+                } else {
+                    // First run
+                    currentRun = run
+                }
+
+            case .hyperlink(let hyperlink):
+                // Save any pending run first
+                if let current = currentRun {
+                    merged.append(.run(current))
+                    currentRun = nil
+                }
+                // Add the hyperlink
+                merged.append(.hyperlink(hyperlink))
+            }
+        }
+
+        // Don't forget the last run
+        if let current = currentRun {
+            merged.append(.run(current))
+        }
+
+        return merged
+    }
+
+    private func renderRun(_ run: DocxRun) -> String {
+        // Handle empty text
+        guard !run.text.isEmpty else {
+            return ""
+        }
+
+        // For whitespace-only runs, just escape and return
+        let trimmed = run.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return escapeHTML(run.text)
+        }
+
+        var formatted = escapeHTML(run.text)
+
+        // Apply formatting
+        if run.isSuperscript {
+            formatted = "<sup>\(formatted)</sup>"
+        } else if run.isSubscript {
+            formatted = "<sub>\(formatted)</sub>"
+        }
+
+        if run.isUnderline {
+            formatted = "<u>\(formatted)</u>"
+        }
+        if run.isItalic {
+            formatted = "<em>\(formatted)</em>"
+        }
+        if run.isBold {
+            formatted = "<strong>\(formatted)</strong>"
+        }
+
+        return formatted
+    }
+
+    private func renderTable(_ table: DocxTable) -> String {
+        guard !table.rows.isEmpty else {
+            return ""
+        }
+
+        var htmlParts = ["<table>"]
+
+        // First row as header
+        if let firstRow = table.rows.first {
+            htmlParts.append("  <thead>")
+            htmlParts.append("    <tr>")
+
+            for cell in firstRow.cells {
+                let cellText = escapeHTML(cell.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                htmlParts.append("      <th>\(cellText)</th>")
+            }
+
+            htmlParts.append("    </tr>")
+            htmlParts.append("  </thead>")
+        }
+
+        // Rest as body
+        if table.rows.count > 1 {
+            htmlParts.append("  <tbody>")
+
+            for row in table.rows.dropFirst() {
+                htmlParts.append("    <tr>")
+
+                for cell in row.cells {
+                    let cellText = escapeHTML(cell.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                    htmlParts.append("      <td>\(cellText)</td>")
+                }
+
+                htmlParts.append("    </tr>")
+            }
+
+            htmlParts.append("  </tbody>")
+        }
+
+        htmlParts.append("</table>")
+
+        return htmlParts.joined(separator: "\n")
+    }
+
+    private func shouldWrapAsQuote(_ text: String) -> Bool {
+        // Extract only the text content (not HTML tags/attributes) for quote counting
+        var textOnly = ""
+        var insideTag = false
+
+        for char in text {
+            if char == "<" {
+                insideTag = true
+            } else if char == ">" {
+                insideTag = false
+            } else if !insideTag {
+                textOnly.append(char)
+            }
+        }
+
+        // Count quote characters only in text content
+        let quoteCount = config.quoteDetection.quoteTypes.reduce(0) { count, quoteChar in
+            count + textOnly.filter { String($0) == quoteChar }.count
+        }
+        return quoteCount >= config.quoteDetection.threshold
+    }
+
+    private func formatLink(url: String, text: String) -> String {
+        var attributes = "href=\"\(url)\""
+
+        // Add target="_blank" if link_handling is enabled
+        if config.linkHandling.enabled && config.linkHandling.addTargetBlank {
+            // Check if this domain is in the exception list
+            if !isDomainExcluded(url: url) {
+                attributes += " target=\"_blank\""
+            }
+        }
+
+        return "<a \(attributes)>\(escapeHTML(text))</a>"
+    }
+
+    private func isDomainExcluded(url: String) -> Bool {
+        // Extract domain from URL
+        guard let urlObj = URL(string: url),
+              let host = urlObj.host else {
+            return false
+        }
+
+        // Check if host matches any exception domain
+        for exceptionDomain in config.linkHandling.exceptionDomains {
+            if host == exceptionDomain || host.hasSuffix(".\(exceptionDomain)") {
+                return true
+            }
+        }
+
+        return false
     }
 
     // MARK: - DOCX Extraction
@@ -224,289 +798,44 @@ class DocxConverter {
         return relationships
     }
 
-    // MARK: - Paragraph Processing
-
-    struct ParagraphResult {
-        let html: String?
-        let listItem: ListItem?
-    }
-
-    private func processParagraph(_ element: XMLElement, relationships: [String: String]) throws -> ParagraphResult {
-        // Check if it's a list item
-        if let listItem = extractListInfo(from: element) {
-            let text = try processRuns(in: element, relationships: relationships)
-            return ParagraphResult(html: nil, listItem: ListItem(level: listItem.level, type: listItem.type, text: text))
-        }
-
-        // Get paragraph text
-        let text = getElementText(element)
-        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return ParagraphResult(html: nil, listItem: nil)
-        }
-
-        // Check if it's a heading
-        let isHeading = isHeadingStyle(element)
-        let tag = isHeading ? config.output.headingTag : config.output.paragraphTag
-
-        // Process runs for formatting and hyperlinks
-        let htmlContent = try processRuns(in: element, relationships: relationships)
-
-        // Check for quote detection
-        if config.quoteDetection.enabled {
-            let quoteCount = countQuotes(in: text)
-            if quoteCount >= config.quoteDetection.threshold {
-                let (openTag, closeTag) = parseWrapTag(config.quoteDetection.wrapTag)
-                return ParagraphResult(html: "\(openTag)<\(tag)>\(htmlContent)</\(tag)>\(closeTag)", listItem: nil)
-            }
-        }
-
-        return ParagraphResult(html: "<\(tag)>\(htmlContent)</\(tag)>", listItem: nil)
-    }
-
-    private func processRuns(in paragraph: XMLElement, relationships: [String: String]) throws -> String {
-        var result: [String] = []
-
-        // Extract all hyperlinks first (maps hyperlink elements to their URLs)
-        let hyperlinkMap = extractHyperlinkMap(from: paragraph, relationships: relationships)
-
-        // Process all children in order (this gives us proper positioning!)
-        for child in paragraph.children ?? [] {
-            guard let element = child as? XMLElement else { continue }
-
-            let name = element.localName ?? ""
-
-            if name == "hyperlink" {
-                // Process hyperlink element with all its runs
-                if let url = hyperlinkMap[element] {
-                    let text = getElementText(element)
-                    result.append(formatLink(url: url, text: text))
-                }
-            } else if name == "r" {
-                // Regular run (not inside a hyperlink)
-                let runHTML = processRun(element)
-                if !runHTML.isEmpty {
-                    result.append(runHTML)
-                }
-            }
-        }
-
-        return result.joined()
-    }
-
-    private func processRun(_ runElement: XMLElement) -> String {
-        // Get text content
-        let text = getRunText(runElement)
-
-        // Skip empty runs
-        guard !text.isEmpty else { return "" }
-
-        // Get formatting
-        let isBold = hasFormatting(runElement, tag: "b") || hasFormatting(runElement, tag: "bCs")
-        let isItalic = hasFormatting(runElement, tag: "i") || hasFormatting(runElement, tag: "iCs")
-        let isUnderline = hasFormatting(runElement, tag: "u")
-
-        var formatted = escapeHTML(text)
-
-        if isUnderline {
-            formatted = "<u>\(formatted)</u>"
-        }
-        if isItalic {
-            formatted = "<em>\(formatted)</em>"
-        }
-        if isBold {
-            formatted = "<strong>\(formatted)</strong>"
-        }
-
-        return formatted
-    }
-
-    // MARK: - Hyperlink Processing
-
-    private func extractHyperlinkMap(from paragraph: XMLElement, relationships: [String: String]) -> [XMLElement: String] {
-        var hyperlinkMap: [XMLElement: String] = [:]
-
-        // Find all hyperlink elements
-        let hyperlinkElements = (try? paragraph.nodes(forXPath: "./w:hyperlink")) as? [XMLElement] ?? []
-
-        for hyperlink in hyperlinkElements {
-            if let rId = hyperlink.attribute(forName: "r:id")?.stringValue,
-               let url = relationships[rId] {
-                hyperlinkMap[hyperlink] = url
-            } else if let anchor = hyperlink.attribute(forName: "w:anchor")?.stringValue {
-                hyperlinkMap[hyperlink] = "#\(anchor)"
-            }
-        }
-
-        return hyperlinkMap
-    }
-
-    private func formatLink(url: String, text: String) -> String {
-        return "<a href=\"\(url)\">\(escapeHTML(text))</a>"
-    }
-
     // MARK: - List Processing
-
-    private func extractListInfo(from paragraph: XMLElement) -> (level: Int, type: ListType)? {
-        // Look for numPr element which indicates a list
-        guard let numPr = (try? paragraph.nodes(forXPath: ".//w:numPr").first) as? XMLElement else {
-            return nil
-        }
-
-        // Get list level
-        let levelElement = (try? numPr.nodes(forXPath: ".//w:ilvl").first) as? XMLElement
-        let levelValue = levelElement?.attribute(forName: "w:val")?.stringValue ?? "0"
-        let level = Int(levelValue) ?? 0
-
-        // For now, default to bullet (we could enhance this by reading numbering.xml)
-        return (level: level, type: .bullet)
-    }
 
     private func createListHTML(from items: [ListItem]) -> String {
         guard !items.isEmpty else { return "" }
 
-        let minLevel = items.map { $0.level }.min() ?? 0
-        let (html, _) = buildNestedList(items: items, startIndex: 0, currentLevel: minLevel)
-        return html
-    }
-
-    private func buildNestedList(items: [ListItem], startIndex: Int, currentLevel: Int) -> (String, Int) {
-        guard startIndex < items.count else { return ("", startIndex) }
-
         var htmlParts: [String] = []
-        var i = startIndex
-        var currentListType: ListType?
-        var listStarted = false
+        var currentLevel = -1
+        var openLists: [(level: Int, type: ListType)] = []
 
-        while i < items.count {
-            let item = items[i]
-
-            if item.level < currentLevel {
-                // Going back up - close current list
-                if listStarted, let type = currentListType {
-                    let tag = type == .bullet ? "ul" : "ol"
-                    htmlParts.append("</\(tag)>")
-                }
-                return (htmlParts.joined(separator: "\n"), i)
-            } else if item.level == currentLevel {
-                // Same level - add list item
-                if !listStarted {
-                    currentListType = item.type
-                    let tag = item.type == .bullet ? "ul" : "ol"
-                    htmlParts.append("<\(tag)>")
-                    listStarted = true
-                }
-
-                // Check if next item is nested
-                if i + 1 < items.count && items[i + 1].level > item.level {
-                    htmlParts.append("  <li>\(item.text)")
-                    let (nestedHTML, nextIndex) = buildNestedList(items: items, startIndex: i + 1, currentLevel: items[i + 1].level)
-                    let indented = nestedHTML.split(separator: "\n").map { "    \($0)" }.joined(separator: "\n")
-                    htmlParts.append(indented)
-                    htmlParts.append("  </li>")
-                    i = nextIndex
-                } else {
-                    htmlParts.append("  <li>\(item.text)</li>")
-                    i += 1
-                }
-            } else {
-                break
+        for item in items {
+            // Close lists if we're going to a shallower level
+            while currentLevel >= item.level && !openLists.isEmpty {
+                let closingList = openLists.removeLast()
+                let tag = closingList.type == .bullet ? "ul" : "ol"
+                htmlParts.append("</\(tag)>")
+                currentLevel = openLists.last?.level ?? -1
             }
+
+            // Open new lists if we're going deeper
+            while currentLevel < item.level {
+                currentLevel += 1
+                let tag = item.type == .bullet ? "ul" : "ol"
+                htmlParts.append("<\(tag)>")
+                openLists.append((level: currentLevel, type: item.type))
+            }
+
+            // Add the list item
+            htmlParts.append("<li>\(item.text)</li>")
         }
 
-        if listStarted, let type = currentListType {
-            let tag = type == .bullet ? "ul" : "ol"
+        // Close all remaining open lists
+        while !openLists.isEmpty {
+            let closingList = openLists.removeLast()
+            let tag = closingList.type == .bullet ? "ul" : "ol"
             htmlParts.append("</\(tag)>")
         }
 
-        return (htmlParts.joined(separator: "\n"), i)
-    }
-
-    // MARK: - Table Processing
-
-    private func processTable(_ element: XMLElement) throws -> String {
-        // Get table rows by filtering direct children
-        let rows = element.children?.compactMap { $0 as? XMLElement }.filter { $0.localName == "tr" } ?? []
-        guard !rows.isEmpty else { return "" }
-
-        var htmlParts = ["<table>"]
-
-        // First row as header
-        if let firstRow = rows.first {
-            htmlParts.append("  <thead>")
-            htmlParts.append("    <tr>")
-
-            let cells = firstRow.children?.compactMap { $0 as? XMLElement }.filter { $0.localName == "tc" } ?? []
-            for cell in cells {
-                let cellText = escapeHTML(getCellText(cell).trimmingCharacters(in: .whitespaces))
-                htmlParts.append("      <th>\(cellText)</th>")
-            }
-
-            htmlParts.append("    </tr>")
-            htmlParts.append("  </thead>")
-        }
-
-        // Rest as body
-        if rows.count > 1 {
-            htmlParts.append("  <tbody>")
-
-            for row in rows.dropFirst() {
-                htmlParts.append("    <tr>")
-
-                let cells = row.children?.compactMap { $0 as? XMLElement }.filter { $0.localName == "tc" } ?? []
-                for cell in cells {
-                    let cellText = escapeHTML(getCellText(cell).trimmingCharacters(in: .whitespaces))
-                    htmlParts.append("      <td>\(cellText)</td>")
-                }
-
-                htmlParts.append("    </tr>")
-            }
-
-            htmlParts.append("  </tbody>")
-        }
-
-        htmlParts.append("</table>")
-
         return htmlParts.joined(separator: "\n")
-    }
-
-    private func getCellText(_ cell: XMLElement) -> String {
-        // Get only direct paragraph children of the cell
-        let paragraphs = cell.children?.compactMap { $0 as? XMLElement }.filter { $0.localName == "p" } ?? []
-
-        // Extract text directly from runs in each paragraph
-        var cellTexts: [String] = []
-        for paragraph in paragraphs {
-            let runs = paragraph.children?.compactMap { $0 as? XMLElement }.filter { $0.localName == "r" } ?? []
-            let paragraphText = runs.map { extractTextFromRun($0) }.joined()
-            if !paragraphText.isEmpty {
-                cellTexts.append(paragraphText)
-            }
-        }
-
-        return cellTexts.joined(separator: " ")
-    }
-
-    private func extractTextFromRun(_ runElement: XMLElement) -> String {
-        // Extract text by traversing only direct children
-        var texts: [String] = []
-
-        func traverse(_ element: XMLElement) {
-            if element.localName == "t" {
-                if let text = element.stringValue {
-                    texts.append(text)
-                }
-            } else {
-                // Recursively check children for <w:t> elements
-                for child in element.children ?? [] {
-                    if let childElement = child as? XMLElement {
-                        traverse(childElement)
-                    }
-                }
-            }
-        }
-
-        traverse(runElement)
-        return texts.joined()
     }
 
     // MARK: - Transformations
@@ -515,11 +844,23 @@ class DocxConverter {
         var result = html
 
         for special in config.specialCharacters where special.enabled {
-            let pattern = NSRegularExpression.escapedPattern(for: special.character)
-            result = result.replacingOccurrences(
-                of: pattern,
-                with: "<\(special.wrapTag)>\(special.character)</\(special.wrapTag)>",
-                options: .regularExpression
+            // Only wrap special characters that aren't already inside the wrap tag
+            // This prevents double-wrapping when DOCX already has the formatting
+            let wrappedPattern = "<\(special.wrapTag)>[\(NSRegularExpression.escapedPattern(for: special.character))]</\(special.wrapTag)>"
+
+            // Check if character is already wrapped
+            if result.range(of: wrappedPattern, options: .regularExpression) != nil {
+                // Already wrapped, skip
+                continue
+            }
+
+            // Apply replacement only to text content, not within HTML tags
+            // This prevents corrupting URLs and attributes
+            result = replaceInTextContent(
+                in: result,
+                search: special.character,
+                replace: "<\(special.wrapTag)>\(special.character)</\(special.wrapTag)>",
+                caseSensitive: true
             )
         }
 
@@ -530,8 +871,7 @@ class DocxConverter {
         var result = html
 
         for replacement in config.replacements {
-            // Apply replacements only to text content, not within HTML tags
-            result = replaceOutsideTags(
+            result = replaceInTextContent(
                 in: result,
                 search: replacement.search,
                 replace: replacement.replace,
@@ -542,96 +882,110 @@ class DocxConverter {
         return result
     }
 
-    private func replaceOutsideTags(in html: String, search: String, replace: String, caseSensitive: Bool) -> String {
+    /// Replace text only in HTML text content, not in tags or attributes
+    /// Also handles text split across formatting tags like </u><u>
+    private func replaceInTextContent(in html: String, search: String, replace: String, caseSensitive: Bool) -> String {
         var result = ""
-        var insideTag = false
-        var currentText = ""
+        var currentSegment = ""
+        var i = html.startIndex
 
-        for char in html {
+        while i < html.endIndex {
+            let char = html[i]
+
             if char == "<" {
-                // Process accumulated text before entering tag
-                if !currentText.isEmpty {
-                    if caseSensitive {
-                        result += currentText.replacingOccurrences(of: search, with: replace)
-                    } else {
-                        result += currentText.replacingOccurrences(of: search, with: replace, options: .caseInsensitive)
-                    }
-                    currentText = ""
+                // Check if this is a structural tag (a, p, h1, etc.) or formatting tag (u, em, strong, etc.)
+                let tagStartIndex = i
+                var tagEndIndex = i
+
+                // Find the end of this tag
+                while tagEndIndex < html.endIndex && html[tagEndIndex] != ">" {
+                    tagEndIndex = html.index(after: tagEndIndex)
                 }
-                insideTag = true
-                result.append(char)
-            } else if char == ">" {
-                insideTag = false
-                result.append(char)
-            } else if insideTag {
-                // Inside tag - don't replace, just append
-                result.append(char)
-            } else {
-                // Outside tag - accumulate text
-                currentText.append(char)
+
+                if tagEndIndex < html.endIndex {
+                    let tagContent = String(html[html.index(after: tagStartIndex)...tagEndIndex])
+                    let tagName = tagContent.split(separator: " ").first?.replacingOccurrences(of: ">", with: "") ?? ""
+                    let cleanTagName = tagName.replacingOccurrences(of: "/", with: "")
+
+                    // Formatting tags that we want to include in text processing
+                    let formattingTags = Set(["u", "em", "strong", "sup", "sub", "b", "i"])
+
+                    if formattingTags.contains(cleanTagName) {
+                        // This is a formatting tag - include it in the current segment
+                        currentSegment += String(html[tagStartIndex...tagEndIndex])
+                        i = html.index(after: tagEndIndex)
+                        continue
+                    } else {
+                        // This is a structural tag - process accumulated segment first
+                        if !currentSegment.isEmpty {
+                            result += replaceWithFormattingAwareness(
+                                in: currentSegment,
+                                search: search,
+                                replace: replace,
+                                caseSensitive: caseSensitive
+                            )
+                            currentSegment = ""
+                        }
+
+                        // Add the structural tag as-is
+                        result += String(html[tagStartIndex...tagEndIndex])
+                        i = html.index(after: tagEndIndex)
+                        continue
+                    }
+                }
             }
+
+            // Regular character - add to current segment
+            currentSegment.append(char)
+            i = html.index(after: i)
         }
 
-        // Process any remaining text
-        if !currentText.isEmpty {
-            if caseSensitive {
-                result += currentText.replacingOccurrences(of: search, with: replace)
-            } else {
-                result += currentText.replacingOccurrences(of: search, with: replace, options: .caseInsensitive)
-            }
+        // Process any remaining segment
+        if !currentSegment.isEmpty {
+            result += replaceWithFormattingAwareness(
+                in: currentSegment,
+                search: search,
+                replace: replace,
+                caseSensitive: caseSensitive
+            )
         }
 
         return result
     }
 
-    // MARK: - Helper Methods
+    /// Replace with awareness of formatting tags like <u>text</u> or split <u>part1</u><u>part2</u>
+    private func replaceWithFormattingAwareness(in text: String, search: String, replace: String, caseSensitive: Bool) -> String {
+        let options: NSRegularExpression.Options = caseSensitive ? [] : [.caseInsensitive]
 
-    private func getElementText(_ element: XMLElement) -> String {
-        let textNodes = (try? element.nodes(forXPath: ".//w:t")) as? [XMLElement] ?? []
-        return textNodes.compactMap { $0.stringValue }.joined()
-    }
+        // Build pattern to match the search text potentially wrapped in <u> tags and split across them
+        let escapedSearch = NSRegularExpression.escapedPattern(for: search)
 
-    private func getRunText(_ runElement: XMLElement) -> String {
-        let textNodes = (try? runElement.nodes(forXPath: ".//w:t")) as? [XMLElement] ?? []
-        return textNodes.compactMap { $0.stringValue }.joined()
-    }
-
-    private func hasFormatting(_ runElement: XMLElement, tag: String) -> Bool {
-        let path = ".//w:\(tag)"
-        let nodes = (try? runElement.nodes(forXPath: path)) as? [XMLElement] ?? []
-        return !nodes.isEmpty
-    }
-
-    private func isHeadingStyle(_ paragraph: XMLElement) -> Bool {
-        let styleNodes = (try? paragraph.nodes(forXPath: ".//w:pStyle")) as? [XMLElement] ?? []
-        for style in styleNodes {
-            if let val = style.attribute(forName: "w:val")?.stringValue,
-               val.hasPrefix("Heading") {
-                return true
+        // Allow </u><u> between any characters in the search string
+        var flexiblePattern = ""
+        for char in escapedSearch {
+            flexiblePattern += String(char)
+            if char != "\\" {  // Don't add split pattern after escape characters
+                flexiblePattern += "(?:</u><u>)?"
             }
         }
-        return false
-    }
 
-    private func countQuotes(in text: String) -> Int {
-        return config.quoteDetection.quoteTypes.reduce(0) { count, quoteType in
-            count + text.components(separatedBy: quoteType).count - 1
+        // Wrap pattern to optionally match surrounding <u> tags
+        let pattern = "(?:<u>)?(\(flexiblePattern))(?:</u>)?"
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else {
+            return text
         }
+
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(
+            in: text,
+            options: [],
+            range: range,
+            withTemplate: replace
+        )
     }
 
-    private func parseWrapTag(_ wrapTag: String) -> (String, String) {
-        let trimmed = wrapTag.trimmingCharacters(in: .whitespaces)
-
-        if trimmed.contains(" ") {
-            // Has attributes
-            let parts = trimmed.split(separator: " ", maxSplits: 1)
-            let tagName = String(parts[0])
-            return ("<\(trimmed)>", "</\(tagName)>")
-        } else {
-            // Simple tag
-            return ("<\(trimmed)>", "</\(trimmed)>")
-        }
-    }
+    // MARK: - Helper Methods
 
     private func escapeHTML(_ text: String) -> String {
         return text

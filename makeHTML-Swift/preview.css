@@ -126,11 +126,19 @@ img {
   clear: both;
 }
 .responsive-col > div {
-  width: 32.33333%;
   margin-left: 1.5%;
   float: left;
 }
 
+.responsive-col > .three-col-one,
+.responsive-col > .three-col-two,
+.responsive-col > .three-col-three {
+  width: 32.33333%;
+}
+.responsive-col > .two-col-one,
+.responsive-col > .two-col-two {
+  width: 49.25%;
+}
 .responsive-col > div:first-child {
   margin-left: 0;
 }
@@ -147,6 +155,5 @@ p.image-caption {
   margin-top: 24px;
   margin-bottom: 20px;
   color: #36495a;
-
   background: #ededed;
 }

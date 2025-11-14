@@ -24,38 +24,32 @@ fi
 # No Python converter needed anymore - using native Swift!
 
 echo ""
-echo "[1/4] Creating Xcode project..."
+echo "[1/4] Preparing tidy binary..."
 
-# Create a temporary Xcode project directory
-PROJECT_DIR="makeHTML.xcodeproj"
-mkdir -p "$PROJECT_DIR"
+# Check if tidy is installed and copy it for bundling
+TIDY_SOURCE="/opt/homebrew/bin/tidy"
+if [ ! -f "$TIDY_SOURCE" ]; then
+    TIDY_SOURCE="/usr/local/bin/tidy"
+fi
 
-# We'll use swift build instead for simplicity
-# Create Package.swift for SwiftPM
-cat > Package.swift << 'EOF'
-// swift-tools-version:5.9
-import PackageDescription
+if [ ! -f "$TIDY_SOURCE" ]; then
+    TIDY_SOURCE="/usr/bin/tidy"
+fi
 
-let package = Package(
-    name: "makeHTML",
-    platforms: [.macOS(.v14)],
-    dependencies: [],
-    targets: [
-        .executableTarget(
-            name: "makeHTML",
-            dependencies: [],
-            path: "."
-        )
-    ]
-)
-EOF
-
-echo "✓ Project files created"
+if [ -f "$TIDY_SOURCE" ]; then
+    echo "  Found tidy at: $TIDY_SOURCE"
+    TIDY_TEMP="./tidy-binary"
+    cp "$TIDY_SOURCE" "$TIDY_TEMP"
+    echo "✓ Tidy binary ready for bundling"
+else
+    echo "⚠ Warning: tidy not found. HTML formatting will be skipped."
+    TIDY_TEMP=""
+fi
 
 echo ""
 echo "[2/4] Building Swift app..."
 
-# Build the app using swiftc directly for a simple app bundle
+# Build the app using swiftc directly
 APP_NAME="makeHTML"
 APP_BUNDLE="build/${APP_NAME}.app"
 APP_MACOS="${APP_BUNDLE}/Contents/MacOS"
@@ -72,9 +66,12 @@ swiftc -o "${APP_MACOS}/${APP_NAME}" \
     -framework SwiftUI \
     -framework AppKit \
     -framework UniformTypeIdentifiers \
+    -framework WebKit \
     makeHTMLApp.swift \
     ContentView.swift \
-    DocxConverter.swift
+    DocxXMLParser.swift \
+    DocxConverter.swift \
+    ConversionLogger.swift
 
 echo "✓ Swift compilation complete"
 
@@ -105,6 +102,15 @@ if [ -d "snippets" ]; then
     mkdir -p "$APP_RESOURCES/snippets"
     cp snippets/*.html "$APP_RESOURCES/snippets/" 2>/dev/null || true
     echo "  ✓ Snippets bundled"
+fi
+
+# Copy tidy binary if available
+if [ -n "$TIDY_TEMP" ] && [ -f "$TIDY_TEMP" ]; then
+    echo "  Bundling tidy binary..."
+    cp "$TIDY_TEMP" "$APP_RESOURCES/tidy"
+    chmod +x "$APP_RESOURCES/tidy"
+    rm "$TIDY_TEMP"
+    echo "  ✓ Tidy binary bundled (835KB)"
 fi
 
 # Create app icon from PNG
