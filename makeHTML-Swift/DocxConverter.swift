@@ -884,10 +884,12 @@ class DocxConverter {
 
     /// Replace text only in HTML text content, not in tags or attributes
     /// Also handles text split across formatting tags like </u><u>
+    /// IMPORTANT: Skips replacements inside <a> tags to prevent nested anchors
     private func replaceInTextContent(in html: String, search: String, replace: String, caseSensitive: Bool) -> String {
         var result = ""
         var currentSegment = ""
         var i = html.startIndex
+        var insideAnchor = false  // Track if we're inside an <a> tag
 
         while i < html.endIndex {
             let char = html[i]
@@ -907,6 +909,13 @@ class DocxConverter {
                     let tagName = tagContent.split(separator: " ").first?.replacingOccurrences(of: ">", with: "") ?? ""
                     let cleanTagName = tagName.replacingOccurrences(of: "/", with: "")
 
+                    // Track anchor tags
+                    if cleanTagName == "a" {
+                        insideAnchor = true
+                    } else if tagName == "/a" {
+                        insideAnchor = false
+                    }
+
                     // Formatting tags that we want to include in text processing
                     let formattingTags = Set(["u", "em", "strong", "sup", "sub", "b", "i"])
 
@@ -918,12 +927,17 @@ class DocxConverter {
                     } else {
                         // This is a structural tag - process accumulated segment first
                         if !currentSegment.isEmpty {
-                            result += replaceWithFormattingAwareness(
-                                in: currentSegment,
-                                search: search,
-                                replace: replace,
-                                caseSensitive: caseSensitive
-                            )
+                            // Only apply replacements if we're NOT inside an anchor tag
+                            if insideAnchor {
+                                result += currentSegment
+                            } else {
+                                result += replaceWithFormattingAwareness(
+                                    in: currentSegment,
+                                    search: search,
+                                    replace: replace,
+                                    caseSensitive: caseSensitive
+                                )
+                            }
                             currentSegment = ""
                         }
 
@@ -942,12 +956,17 @@ class DocxConverter {
 
         // Process any remaining segment
         if !currentSegment.isEmpty {
-            result += replaceWithFormattingAwareness(
-                in: currentSegment,
-                search: search,
-                replace: replace,
-                caseSensitive: caseSensitive
-            )
+            // Only apply replacements if we're NOT inside an anchor tag
+            if insideAnchor {
+                result += currentSegment
+            } else {
+                result += replaceWithFormattingAwareness(
+                    in: currentSegment,
+                    search: search,
+                    replace: replace,
+                    caseSensitive: caseSensitive
+                )
+            }
         }
 
         return result

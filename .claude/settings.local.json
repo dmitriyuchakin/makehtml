@@ -46,7 +46,8 @@
       "Bash(do echo '=== $f ===')",
       "Bash(done)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(xmllint:*)"
     ],
     "deny": [],
     "ask": []
