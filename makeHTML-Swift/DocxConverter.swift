@@ -808,8 +808,8 @@ class DocxConverter {
         var openLists: [(level: Int, type: ListType)] = []
 
         for item in items {
-            // Close lists if we're going to a shallower level
-            while currentLevel >= item.level && !openLists.isEmpty {
+            // Close lists if we're going to a shallower level (not same level!)
+            while currentLevel > item.level && !openLists.isEmpty {
                 let closingList = openLists.removeLast()
                 let tag = closingList.type == .bullet ? "ul" : "ol"
                 htmlParts.append("</\(tag)>")

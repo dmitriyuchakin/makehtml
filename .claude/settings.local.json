@@ -40,7 +40,13 @@
       "Bash(/tmp/test-both.swift)",
       "Bash(/tmp/test-both:*)",
       "Bash(tidy:*)",
-      "Bash(/tmp/test-tidy:*)"
+      "Bash(/tmp/test-tidy:*)",
+      "Bash(./test-list-debug:*)",
+      "Bash(for:*)",
+      "Bash(do echo '=== $f ===')",
+      "Bash(done)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
