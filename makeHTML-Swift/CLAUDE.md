@@ -1,9 +1,10 @@
 # Claude Context: makeHTML Project
 
-**Last Updated**: 2025-11-13
+**Last Updated**: 2025-12-02
 **Project**: makeHTML - Native macOS DOCX to HTML Converter
 **Language**: Swift 5.9+ / SwiftUI
 **Target**: macOS 14.0+ (Sonoma)
+**Current Branch**: swift
 
 ---
 
@@ -45,10 +46,11 @@ Display preview with custom CSS
 
 ### Key Source Files
 
-**makeHTMLApp.swift** (30 lines)
-- App entry point
+**makeHTMLApp.swift** (31 lines)
+- App entry point with @main attribute
 - NSApplicationDelegate for "Open With" support
 - NotificationCenter for file URL passing
+- Window configuration: hidden title bar, 700x720 default size
 
 **ContentView.swift** (~500 lines)
 - Main UI with drag & drop
@@ -437,4 +439,5 @@ From README.md:
 
 ---
 
-**Last Updated**: 2025-11-13 by Claude (Sonnet 4.5)
+**Last Updated**: 2025-12-02 by Claude (Sonnet 4.5)
+**Latest Commit**: 98ae208 - "full swift version"
