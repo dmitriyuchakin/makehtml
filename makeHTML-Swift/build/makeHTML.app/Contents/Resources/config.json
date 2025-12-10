@@ -45,12 +45,18 @@
       "search": "\u202F",
       "replace": " ",
       "case_sensitive": false
+    },
+    {
+      "search": "\u00A0",
+      "replace": " ",
+      "case_sensitive": false
     }
   ],
   "quote_detection": {
     "enabled": true,
     "threshold": 3,
-    "wrap_tag": "div class=\"blockquote\"",
+    "wrap_open": "<div class=\"blockquote\"><p>",
+    "wrap_close": "</p></div>",
     "quote_types": ["\"", "\u201C", "\u201D"]
   },
   "link_handling": {
@@ -80,12 +86,16 @@
       "enabled": false
     }
   ],
+  "heading_detection": {
+    "enabled": false,
+    "max_length": 50
+  },
   "tidy_formatting": {
     "enabled": true,
     "indent_spaces": 2,
     "wrap_length": 80,
-    "vertical_space": false,
+    "vertical_space": true,
     "show_body_only": true,
-    "custom_options": []
+    "custom_options": ["--indent-attributes", "yes", "--break-before-br", "yes"]
   }
 }

@@ -34,6 +34,7 @@ struct ConversionConfig: Codable {
     let quoteDetection: QuoteDetection
     let linkHandling: LinkHandling
     let codeSnippets: [ConfigCodeSnippet]
+    let headingDetection: HeadingDetection?  // Optional for backward compatibility
     let tidyFormatting: TidyFormatting?  // Optional for backward compatibility
 
     enum CodingKeys: String, CodingKey {
@@ -43,6 +44,7 @@ struct ConversionConfig: Codable {
         case quoteDetection = "quote_detection"
         case linkHandling = "link_handling"
         case codeSnippets = "code_snippets"
+        case headingDetection = "heading_detection"
         case tidyFormatting = "tidy_formatting"
     }
 }
@@ -84,13 +86,15 @@ struct Replacement: Codable {
 struct QuoteDetection: Codable {
     let enabled: Bool
     let threshold: Int
-    let wrapTag: String
+    let wrapOpen: String
+    let wrapClose: String
     let quoteTypes: [String]
 
     enum CodingKeys: String, CodingKey {
         case enabled
         case threshold
-        case wrapTag = "wrap_tag"
+        case wrapOpen = "wrap_open"
+        case wrapClose = "wrap_close"
         case quoteTypes = "quote_types"
     }
 }
@@ -111,6 +115,16 @@ struct ConfigCodeSnippet: Codable {
     let name: String
     let file: String
     let enabled: Bool
+}
+
+struct HeadingDetection: Codable {
+    let enabled: Bool
+    let maxLength: Int
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case maxLength = "max_length"
+    }
 }
 
 struct TidyFormatting: Codable {
@@ -392,6 +406,8 @@ class DocxConverter {
                 texts.append(run.text)
             case .hyperlink(let hyperlink):
                 texts.append(hyperlink.text)
+            case .lineBreak:
+                texts.append(" ")
             }
         }
 
@@ -523,6 +539,12 @@ class DocxConverter {
     // MARK: - Rendering Functions (XMLParser-based)
 
     private func renderParagraph(_ paragraph: DocxParagraph) -> String {
+        // If heading detection is enabled and paragraph contains line breaks, split it
+        if let headingDetection = config.headingDetection, headingDetection.enabled,
+           paragraph.contents.contains(where: { if case .lineBreak = $0 { return true } else { return false } }) {
+            return renderParagraphWithLineBreaks(paragraph)
+        }
+
         let content = renderParagraphContents(paragraph.contents)
 
         // Skip empty paragraphs
@@ -530,19 +552,66 @@ class DocxConverter {
             return ""
         }
 
-        let tag = paragraph.isHeading ? config.output.headingTag : config.output.paragraphTag
+        // Determine if this should be a heading (using heuristic detection if enabled)
+        let isHeading = shouldTreatAsHeading(paragraph, content: content)
+        let tag = isHeading ? config.output.headingTag : config.output.paragraphTag
 
-        // Check for quote detection
-        if config.quoteDetection.enabled {
+        // Check for quote detection (only for non-headings)
+        if !isHeading && config.quoteDetection.enabled {
             let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
             if shouldWrapAsQuote(trimmed) {
-                let openTag = "<\(config.quoteDetection.wrapTag)>"
-                let closeTag = "</\(config.quoteDetection.wrapTag.split(separator: " ").first ?? "div")>"
-                return "\(openTag)<\(tag)>\(content)</\(tag)>\(closeTag)"
+                // Use the full wrapper HTML with content directly inside
+                return "\(config.quoteDetection.wrapOpen)\(content)\(config.quoteDetection.wrapClose)"
             }
         }
 
-        return "<\(tag)>\(content)</\(tag)>"
+        // Strip formatting tags from headings
+        let finalContent = isHeading ? stripHTMLTags(content) : content
+        return "<\(tag)>\(finalContent)</\(tag)>"
+    }
+
+    private func renderParagraphWithLineBreaks(_ paragraph: DocxParagraph) -> String {
+        var segments: [[DocxParagraphContent]] = []
+        var currentSegment: [DocxParagraphContent] = []
+
+        // Split contents at line breaks
+        for content in paragraph.contents {
+            if case .lineBreak = content {
+                if !currentSegment.isEmpty {
+                    segments.append(currentSegment)
+                    currentSegment = []
+                }
+            } else {
+                currentSegment.append(content)
+            }
+        }
+
+        // Add the last segment
+        if !currentSegment.isEmpty {
+            segments.append(currentSegment)
+        }
+
+        // Render each segment as either heading or paragraph
+        var results: [String] = []
+        for segment in segments {
+            let segmentHTML = renderParagraphContents(segment)
+            guard !segmentHTML.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                continue
+            }
+
+            // Check if this segment should be a heading based on length
+            let plainText = stripHTMLTags(segmentHTML).trimmingCharacters(in: .whitespacesAndNewlines)
+            let isHeading = !plainText.isEmpty && plainText.count <= (config.headingDetection?.maxLength ?? 50)
+
+            if isHeading {
+                let strippedContent = stripHTMLTags(segmentHTML)
+                results.append("<\(config.output.headingTag)>\(strippedContent)</\(config.output.headingTag)>")
+            } else {
+                results.append("<\(config.output.paragraphTag)>\(segmentHTML)</\(config.output.paragraphTag)>")
+            }
+        }
+
+        return results.joined(separator: "\n\n")
     }
 
     private func renderParagraphContents(_ contents: [DocxParagraphContent]) -> String {
@@ -557,6 +626,10 @@ class DocxConverter {
                 result.append(renderRun(run))
             case .hyperlink(let hyperlink):
                 result.append(formatLink(url: hyperlink.url, text: hyperlink.text))
+            case .lineBreak:
+                // Line breaks are handled at paragraph level when heading detection is enabled
+                // If we encounter one here, it means heading detection is disabled, so render as <br>
+                result.append("<br>")
             }
         }
 
@@ -608,6 +681,15 @@ class DocxConverter {
                 }
                 // Add the hyperlink
                 merged.append(.hyperlink(hyperlink))
+
+            case .lineBreak:
+                // Save any pending run first
+                if let current = currentRun {
+                    merged.append(.run(current))
+                    currentRun = nil
+                }
+                // Add the line break
+                merged.append(.lineBreak)
             }
         }
 
@@ -844,24 +926,40 @@ class DocxConverter {
         var result = html
 
         for special in config.specialCharacters where special.enabled {
-            // Only wrap special characters that aren't already inside the wrap tag
-            // This prevents double-wrapping when DOCX already has the formatting
-            let wrappedPattern = "<\(special.wrapTag)>[\(NSRegularExpression.escapedPattern(for: special.character))]</\(special.wrapTag)>"
+            // Simple approach: find all instances and wrap only the unwrapped ones
+            let openTag = "<\(special.wrapTag)>"
+            let closeTag = "</\(special.wrapTag)>"
+            var searchStart = result.startIndex
 
-            // Check if character is already wrapped
-            if result.range(of: wrappedPattern, options: .regularExpression) != nil {
-                // Already wrapped, skip
-                continue
+            while searchStart < result.endIndex {
+                guard let range = result.range(of: special.character, range: searchStart..<result.endIndex) else {
+                    break
+                }
+
+                // Check if this instance is already wrapped
+                var isWrapped = false
+                if result.distance(from: result.startIndex, to: range.lowerBound) >= openTag.count {
+                    let beforeRange = result.index(range.lowerBound, offsetBy: -openTag.count)..<range.lowerBound
+                    if result[beforeRange] == openTag[...] {
+                        let afterStart = range.upperBound
+                        if result.distance(from: afterStart, to: result.endIndex) >= closeTag.count {
+                            let afterRange = afterStart..<result.index(afterStart, offsetBy: closeTag.count)
+                            if result[afterRange] == closeTag[...] {
+                                isWrapped = true
+                            }
+                        }
+                    }
+                }
+
+                if !isWrapped {
+                    // Replace this instance
+                    let replacement = "\(openTag)\(special.character)\(closeTag)"
+                    result.replaceSubrange(range, with: replacement)
+                    searchStart = result.index(range.lowerBound, offsetBy: replacement.count)
+                } else {
+                    searchStart = range.upperBound
+                }
             }
-
-            // Apply replacement only to text content, not within HTML tags
-            // This prevents corrupting URLs and attributes
-            result = replaceInTextContent(
-                in: result,
-                search: special.character,
-                replace: "<\(special.wrapTag)>\(special.character)</\(special.wrapTag)>",
-                caseSensitive: true
-            )
         }
 
         return result
@@ -871,12 +969,24 @@ class DocxConverter {
         var result = html
 
         for replacement in config.replacements {
-            result = replaceInTextContent(
-                in: result,
-                search: replacement.search,
-                replace: replacement.replace,
-                caseSensitive: replacement.caseSensitive
-            )
+            // For single-character replacements (like nbsp), use simple replacement
+            // to avoid issues with regex patterns and formatting tag handling
+            if replacement.search.count == 1 {
+                let options: String.CompareOptions = replacement.caseSensitive ? [] : [.caseInsensitive]
+                result = result.replacingOccurrences(
+                    of: replacement.search,
+                    with: replacement.replace,
+                    options: options
+                )
+            } else {
+                result = replaceInTextContent(
+                    in: result,
+                    search: replacement.search,
+                    replace: replacement.replace,
+                    caseSensitive: replacement.caseSensitive,
+                    wrapTag: nil
+                )
+            }
         }
 
         return result
@@ -885,7 +995,8 @@ class DocxConverter {
     /// Replace text only in HTML text content, not in tags or attributes
     /// Also handles text split across formatting tags like </u><u>
     /// IMPORTANT: Skips replacements inside <a> tags to prevent nested anchors
-    private func replaceInTextContent(in html: String, search: String, replace: String, caseSensitive: Bool) -> String {
+    /// - Parameter wrapTag: If provided, skips instances already wrapped in this tag
+    private func replaceInTextContent(in html: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
         var result = ""
         var currentSegment = ""
         var i = html.startIndex
@@ -935,7 +1046,8 @@ class DocxConverter {
                                     in: currentSegment,
                                     search: search,
                                     replace: replace,
-                                    caseSensitive: caseSensitive
+                                    caseSensitive: caseSensitive,
+                                    wrapTag: wrapTag
                                 )
                             }
                             currentSegment = ""
@@ -964,7 +1076,8 @@ class DocxConverter {
                     in: currentSegment,
                     search: search,
                     replace: replace,
-                    caseSensitive: caseSensitive
+                    caseSensitive: caseSensitive,
+                    wrapTag: wrapTag
                 )
             }
         }
@@ -973,8 +1086,57 @@ class DocxConverter {
     }
 
     /// Replace with awareness of formatting tags like <u>text</u> or split <u>part1</u><u>part2</u>
-    private func replaceWithFormattingAwareness(in text: String, search: String, replace: String, caseSensitive: Bool) -> String {
+    /// - Parameter wrapTag: If provided, skips instances already wrapped in this tag
+    private func replaceWithFormattingAwareness(in text: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
         let options: NSRegularExpression.Options = caseSensitive ? [] : [.caseInsensitive]
+
+        // If wrapTag is provided, skip instances already wrapped in that tag
+        if let wrapTag = wrapTag {
+            // Manually iterate and replace only unwrapped instances
+            var result = text
+            let openTag = "<\(wrapTag)>"
+            let closeTag = "</\(wrapTag)>"
+            let searchOptions: String.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+
+            var searchStart = result.startIndex
+
+            while searchStart < result.endIndex {
+                // Find next occurrence of search string
+                guard let range = result.range(of: search, options: searchOptions, range: searchStart..<result.endIndex) else {
+                    break
+                }
+
+                // Check if this instance is already wrapped
+                var isWrapped = false
+
+                // Check if there's an opening tag immediately before
+                if result.distance(from: result.startIndex, to: range.lowerBound) >= openTag.count {
+                    let beforeRange = result.index(range.lowerBound, offsetBy: -openTag.count)..<range.lowerBound
+                    if result[beforeRange] == openTag[...] {
+                        // Check if there's a closing tag immediately after
+                        let afterStart = range.upperBound
+                        if result.distance(from: afterStart, to: result.endIndex) >= closeTag.count {
+                            let afterRange = afterStart..<result.index(afterStart, offsetBy: closeTag.count)
+                            if result[afterRange] == closeTag[...] {
+                                isWrapped = true
+                            }
+                        }
+                    }
+                }
+
+                if !isWrapped {
+                    // Replace this instance
+                    result.replaceSubrange(range, with: replace)
+                    // Move search start to after the replacement
+                    searchStart = result.index(range.lowerBound, offsetBy: replace.count)
+                } else {
+                    // Skip this wrapped instance
+                    searchStart = range.upperBound
+                }
+            }
+
+            return result
+        }
 
         // Build pattern to match the search text potentially wrapped in <u> tags and split across them
         let escapedSearch = NSRegularExpression.escapedPattern(for: search)
@@ -1032,5 +1194,61 @@ enum ConversionError: LocalizedError {
         case .invalidXML:
             return "Invalid XML structure"
         }
+    }
+}
+
+// MARK: - Heading Detection (Modular Feature)
+// This extension can be easily removed if the feature is no longer needed
+
+extension DocxConverter {
+    /// Determines if a paragraph should be treated as a heading based on heuristics
+    /// - Parameters:
+    ///   - paragraph: The paragraph to check
+    ///   - content: The rendered text content of the paragraph
+    /// - Returns: True if the paragraph should be treated as a heading
+    func shouldTreatAsHeading(_ paragraph: DocxParagraph, content: String) -> Bool {
+        // If heading detection is disabled or not configured, return false
+        guard let headingDetection = config.headingDetection,
+              headingDetection.enabled else {
+            return false
+        }
+
+        // If paragraph is already marked as a heading, keep it
+        if paragraph.isHeading {
+            return true
+        }
+
+        // Get the plain text without HTML tags
+        let plainText = stripHTMLTags(content).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Skip empty paragraphs
+        guard !plainText.isEmpty else {
+            return false
+        }
+
+        // Simple rule: if the entire paragraph is under max_length, treat it as a heading
+        return plainText.count <= headingDetection.maxLength
+    }
+
+    /// Strips HTML tags from a string
+    private func stripHTMLTags(_ html: String) -> String {
+        var result = html
+
+        // Remove all HTML tags
+        let tagPattern = "<[^>]+>"
+        if let regex = try? NSRegularExpression(pattern: tagPattern, options: []) {
+            let range = NSRange(result.startIndex..., in: result)
+            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+        }
+
+        // Decode common HTML entities
+        result = result
+            .replacingOccurrences(of: "&nbsp;", with: " ")
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+
+        return result
     }
 }

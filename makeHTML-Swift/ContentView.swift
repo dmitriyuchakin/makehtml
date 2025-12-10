@@ -72,7 +72,7 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 20) {
                 // Header with adaptive logo
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     if let lightImage = NSImage(named: "header-icon-light-600"),
                        let darkImage = NSImage(named: "header-icon-dark-600") {
                         Image(nsImage: NSApp.effectiveAppearance.name == .darkAqua ? darkImage : lightImage)
@@ -80,14 +80,16 @@ struct ContentView: View {
                             .interpolation(.high)
                             .antialiased(true)
                             .scaledToFit()
-                            .frame(height: 80)
+                            .frame(height: 40)
                     } else {
                         // Fallback if images not found
                         Text("makeHTML")
                             .font(.system(size: 48, weight: .bold))
                     }
                 }
-                .padding(.top, 40)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 40)
+                .padding(.top, 20)
 
             // Drop Zone
             ZStack {
@@ -260,8 +262,23 @@ struct ContentView: View {
 
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach($codeSnippets) { $snippet in
-                            Toggle((snippet.name), isOn: $snippet.enabled)
-                                .toggleStyle(.checkbox)
+                            HStack(spacing: 8) {
+                                Toggle((snippet.name), isOn: $snippet.enabled)
+                                    .toggleStyle(.checkbox)
+
+                                Button(action: {
+                                    copySnippetToClipboard(snippet)
+                                }) {
+                                    HStack(spacing: 4) {
+                                        
+                                        Text("Copy")
+                                            .font(.caption)
+                                    }
+                                }
+                                .buttonStyle(.borderless)
+                                .controlSize(.small)
+                                .help("Copy snippet code to clipboard")
+                            }
                         }
                     }
                 }
@@ -458,6 +475,30 @@ struct ContentView: View {
         DispatchQueue.main.async {
             self.resizeWindowToFitContent()
         }
+    }
+
+    func copySnippetToClipboard(_ snippet: CodeSnippet) {
+        let configDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/makeHTML")
+
+        var snippetCode: String?
+
+        // Read snippet code from file or use inline code
+        if let filePath = snippet.file {
+            let snippetFile = configDir.appendingPathComponent(filePath)
+            snippetCode = try? String(contentsOf: snippetFile, encoding: .utf8)
+        } else if let inlineCode = snippet.code {
+            snippetCode = inlineCode
+        }
+
+        guard let code = snippetCode else {
+            return
+        }
+
+        // Copy to clipboard
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(code, forType: .string)
     }
 
     func resizeWindowToFitContent() {

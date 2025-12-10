@@ -18,10 +18,11 @@ struct DocxHyperlink {
     let text: String
 }
 
-/// Represents content within a paragraph (either a run or a hyperlink)
+/// Represents content within a paragraph (either a run, hyperlink, or line break)
 enum DocxParagraphContent {
     case run(DocxRun)
     case hyperlink(DocxHyperlink)
+    case lineBreak
 }
 
 /// Represents a paragraph in the document
@@ -155,6 +156,12 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
             runText = ""
             runFormatting = RunFormatting()
 
+        case "br": // Line break
+            // Add a line break to the paragraph contents
+            if !inTableCell() && !inHyperlink() {
+                paragraphContents.append(.lineBreak)
+            }
+
         case "b", "bCs": // Bold
             runFormatting.isBold = true
 
@@ -245,6 +252,7 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
                 switch $0 {
                 case .run(let run): return run.text
                 case .hyperlink(let link): return link.text
+                case .lineBreak: return nil
                 }
             }.joined().trimmingCharacters(in: .whitespacesAndNewlines)
 

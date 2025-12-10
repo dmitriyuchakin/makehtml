@@ -171,6 +171,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>To report bugs and request features, send email to dmitriy@uchakin.com</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
