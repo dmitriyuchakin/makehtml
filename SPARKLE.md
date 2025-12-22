@@ -1,63 +1,61 @@
-# Sparkle Auto-Update Implementation Complete!
+# Sparkle Auto-Updates Guide
 
-## 🎯 What's Working Now
+Complete guide for setting up and maintaining automatic updates in makeHTML using Sparkle + GitHub.
 
-1. **"Check for Updates" menu item** - Users can manually check for updates from the makeHTML menu
-2. **Automatic update checks** - Sparkle checks for updates on launch and periodically
-3. **Secure updates** - Uses EdDSA cryptographic signatures to verify updates are authentic
-4. **GitHub-hosted** - Free hosting using GitHub releases
+---
 
-## 📝 Files Created
+## 📋 Table of Contents
+- [What's Already Done](#whats-already-done)
+- [One-Time Setup](#one-time-setup)
+- [Release Workflow](#release-workflow)
+- [Testing Updates](#testing-updates)
+- [Troubleshooting](#troubleshooting)
 
-1. **SPARKLE_IMPLEMENTATION_SUMMARY.md** - Quick start guide (read this first!)
-2. **SPARKLE_SETUP.md** - Complete setup documentation with troubleshooting
-3. **RELEASE_CHECKLIST.md** - Step-by-step checklist for each release
-4. **appcast.xml** - Update feed template with examples
+---
 
-## 🔧 Files Modified
+## What's Already Done
 
-1. **Package.swift** - Added Sparkle dependency
-2. **makeHTMLApp.swift** - Integrated Sparkle updater
-3. **build.sh** - Now uses Swift Package Manager and bundles Sparkle framework
-4. **Info.plist** (in build.sh) - Added SUFeedURL and SUPublicEDKey placeholders
+✅ Sparkle framework integrated
+✅ "Check for Updates" menu added
+✅ Build script configured
+✅ Appcast template created
 
-## ⏭️ Next Steps (One-Time Setup)
+**What you need to do:** Complete the one-time setup below.
 
-You need to complete 3 things:
+---
 
-### 1. Generate EdDSA signing keys (5 minutes)
+## One-Time Setup
+
+### Step 1: Generate EdDSA Keys (5 min)
 
 ```bash
-# Download Sparkle tools
+# Download Sparkle's key generator
 curl -L https://github.com/sparkle-project/Sparkle/releases/download/2.6.0/Sparkle-2.6.0.tar.xz -o sparkle.tar.xz
 tar -xf sparkle.tar.xz
 ./bin/generate_keys
 ```
 
-This outputs two keys:
-- **Public key** - Add to `build.sh` (line 179)
-- **Private key** - KEEP SECRET! Store in password manager
+You'll get two keys:
+- **Public key** → Goes in `build.sh`
+- **Private key** → Store in password manager (NEVER commit this!)
 
-### 2. Update build.sh with your keys and GitHub URL (2 minutes)
+### Step 2: Update build.sh (2 min)
 
-Open `makeHTML-Swift/build.sh` and replace:
+Open `makeHTML-Swift/build.sh` and update lines 177 & 179:
 
-**Line 177:** Replace the SUFeedURL
 ```xml
-<string>https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml</string>
-```
-With your actual GitHub repo:
-```xml
+<!-- Line 177: Your GitHub repo URL -->
+<key>SUFeedURL</key>
 <string>https://raw.githubusercontent.com/yourusername/makehtml/main/appcast.xml</string>
+
+<!-- Line 179: Your public key from Step 1 -->
+<key>SUPublicEDKey</key>
+<string>paste_your_public_key_here</string>
 ```
 
-**Line 179:** Replace the public key
-```xml
-<string>YOUR_PUBLIC_KEY_WILL_GO_HERE</string>
-```
-With your actual public key from step 1.
+### Step 3: Create Signing Script (2 min)
 
-### 3. Create sign_update.sh script (2 minutes)
+Create `sign_update.sh` in project root:
 
 ```bash
 cat > sign_update.sh << 'EOF'
@@ -67,121 +65,242 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-# Replace with your PRIVATE key
+# IMPORTANT: Replace with your PRIVATE key from Step 1
 PRIVATE_KEY="paste_your_private_key_here"
 
 # Generate signature
 SIGNATURE=$(echo "$PRIVATE_KEY" | openssl dgst -sha256 -binary < "$1" | openssl base64)
 
+echo ""
 echo "EdDSA Signature:"
 echo "$SIGNATURE"
 echo ""
-echo "File size:"
+echo "File size (bytes):"
 ls -l "$1" | awk '{print $5}'
+echo ""
 EOF
 
 chmod +x sign_update.sh
-echo "sign_update.sh" >> .gitignore
 ```
 
-## 🚀 For Each Release (After Setup)
+**Important:** `sign_update.sh` is already in `.gitignore` - never commit it!
 
-The workflow is simple:
+### Step 4: Enable Auto-Start (Optional)
+
+Once setup is complete, you can enable automatic update checks on launch:
+
+Open `makeHTML-Swift/makeHTMLApp.swift` line 80 and change:
+```swift
+startingUpdater: false  // Change to: true
+```
+
+### Step 5: Push appcast.xml to GitHub
 
 ```bash
-# 1. Update version in build.sh
-# Edit makeHTML-Swift/build.sh lines 7-8
-
-# 2. Build
-cd makeHTML-Swift
-./build.sh
-
-# 3. Create release archive
-cd build
-zip -r makeHTML-0.6.zip makeHTML.app
-
-# 4. Sign it
-cd ../..
-./sign_update.sh makeHTML-Swift/build/makeHTML-0.6.zip
-# Copy the signature and file size
-
-# 5. Create GitHub Release
-# - Go to GitHub → Releases → New Release
-# - Tag: v0.6
-# - Upload makeHTML-0.6.zip
-
-# 6. Update appcast.xml
-# Add new <item> with version, download URL, signature, file size
-
-# 7. Commit and push
 git add appcast.xml
-git commit -m "Release version 0.6"
-git push
+git commit -m "Add Sparkle appcast for automatic updates"
+git push origin main
 ```
 
-Detailed steps in **RELEASE_CHECKLIST.md**
+---
 
-## 🧪 Testing
+## Release Workflow
 
-I've built the app and verified:
-- ✅ Sparkle framework is bundled correctly
-- ✅ Framework is properly linked
-- ✅ App builds and runs
-- ✅ "Check for Updates" menu appears
+Follow these steps every time you release a new version:
 
-The app is ready to use once you complete the one-time setup!
+### 1. Update Version Numbers
 
-### Test Auto-Update Works:
+Edit `makeHTML-Swift/build.sh`:
+```bash
+APP_VERSION="0.6"    # Line 7 - Increment this
+BUILD_NUMBER="1200"  # Line 8 - Increment this
+```
 
-1. Build and install current version (0.5)
-2. Create a fake 0.6 release on GitHub
-3. Update appcast.xml with version 0.6
-4. Open makeHTML → "Check for Updates..."
-5. Should show update available
+Optional: Update About panel in `makeHTMLApp.swift` line 32 if needed.
 
-### Clear Update Cache (if testing repeatedly):
+### 2. Build the App
+
+```bash
+cd makeHTML-Swift
+./build.sh
+```
+
+### 3. Create Release Archive
+
+```bash
+cd build
+zip -r makeHTML-0.6.zip makeHTML.app
+cd ../..
+```
+
+### 4. Sign the Update
+
+```bash
+./sign_update.sh makeHTML-Swift/build/makeHTML-0.6.zip
+```
+
+**Copy the output:**
+- EdDSA Signature
+- File size in bytes
+
+### 5. Create GitHub Release
+
+1. Go to: `https://github.com/yourusername/yourrepo/releases`
+2. Click **"Create a new release"**
+3. Tag: `v0.6` (match your version)
+4. Title: `Version 0.6`
+5. Description: Write release notes
+6. Upload: `makeHTML-0.6.zip`
+7. Click **Publish release**
+
+### 6. Update appcast.xml
+
+Add a new `<item>` block at the top (after line 33):
+
+```xml
+<item>
+  <title>Version 0.6</title>
+  <link>https://github.com/yourusername/yourrepo</link>
+  <sparkle:version>0.6</sparkle:version>
+  <sparkle:shortVersionString>0.6</sparkle:shortVersionString>
+  <description><![CDATA[
+    <h2>What's New in Version 0.6</h2>
+    <ul>
+      <li>Feature 1</li>
+      <li>Bug fix 2</li>
+      <li>Improvement 3</li>
+    </ul>
+  ]]></description>
+  <pubDate>Sat, 21 Dec 2025 12:00:00 +0000</pubDate>
+  <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+  <enclosure
+    url="https://github.com/yourusername/yourrepo/releases/download/v0.6/makeHTML-0.6.zip"
+    sparkle:edSignature="PASTE_SIGNATURE_FROM_STEP_4"
+    length="FILE_SIZE_FROM_STEP_4"
+    type="application/octet-stream"
+  />
+</item>
+```
+
+**Important fields:**
+- `url`: Must match GitHub release download URL exactly
+- `sparkle:edSignature`: From step 4
+- `length`: From step 4 (in bytes)
+- `pubDate`: Use `date -R` for correct format
+
+### 7. Commit and Push
+
+```bash
+git add appcast.xml makeHTML-Swift/build.sh
+git commit -m "Release version 0.6"
+git push origin main
+```
+
+### 8. Test
+
+Open your current version → makeHTML menu → "Check for Updates..."
+
+---
+
+## Testing Updates
+
+### Test Before Publishing
+
+1. Build version 0.6
+2. Create a draft GitHub release with the .zip
+3. Update appcast.xml with draft release URL
+4. Open version 0.5 and check for updates
+5. Verify it detects version 0.6
+6. Test the update installs correctly
+7. Publish the release
+
+### Clear Update Cache
+
+If testing repeatedly:
 ```bash
 defaults delete com.makehtml.converter SULastCheckTime
 ```
 
-## ⚠️ Important Security Notes
+### Verify appcast.xml is Accessible
 
-1. **NEVER commit your private key to git**
-2. Store private key in 1Password/password manager
-3. Back up your private key (if lost, can't release updates!)
-4. Add `sign_update.sh` to `.gitignore` (already done)
+```bash
+curl https://raw.githubusercontent.com/yourusername/yourrepo/main/appcast.xml
+```
 
-## 📚 Documentation
+---
 
-All three docs have:
-- Step-by-step instructions
-- Copy-paste commands
-- Troubleshooting sections
-- Security best practices
+## Troubleshooting
 
-**Start with:** `SPARKLE_IMPLEMENTATION_SUMMARY.md`
+### "Update check failed"
+- Verify SUFeedURL in `build.sh` is correct
+- Check appcast.xml is accessible (use curl command above)
+- Ensure GitHub repo is public
 
-## 🎉 What's Next?
+### "Invalid signature"
+- Public key in `build.sh` must match your private key
+- Verify signature was generated with correct private key
+- Don't modify .zip after signing
 
-Once set up, releasing updates is simple:
-1. Build new version
-2. Zip it
-3. Sign it
-4. Upload to GitHub
-5. Update appcast.xml
-6. Push to GitHub
+### "No updates found"
+- Version in appcast.xml must be higher than current
+- Version format must match exactly (e.g., "0.6" not "v0.6")
+- Check `sparkle:version` field
 
-Users will automatically get notified of the update!
+### App shows error on launch
+- Set `startingUpdater: false` in makeHTMLApp.swift until setup is complete
+- Verify SUFeedURL and SUPublicEDKey are valid (not placeholders)
 
-## Current Status
+### Users not getting automatic checks
+- Sparkle checks on launch and every 24 hours
+- First launch won't check (waits 24 hours by default)
+- Users can manually check via menu
 
-- ✅ Sparkle framework integrated
-- ✅ "Check for Updates" menu added
-- ✅ Build process updated
-- ✅ Info.plist configured (needs your keys/URLs)
-- ✅ appcast.xml template created
-- ⏳ **Waiting for:** Your EdDSA keys and GitHub repo URL
+---
 
-## Need Help?
+## Security Best Practices
 
-See **SPARKLE_SETUP.md** for detailed instructions and troubleshooting.
+🔐 **Never commit your private key to git**
+🔐 Store private key in 1Password or password manager
+🔐 Back up your private key (if lost, can't release updates)
+🔐 `sign_update.sh` is in `.gitignore` - keep it there
+
+---
+
+## Quick Reference
+
+### Useful Commands
+
+```bash
+# Get date in RFC 822 format
+date -R
+
+# Check appcast accessibility
+curl https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml
+
+# Clear Sparkle cache
+defaults delete com.makehtml.converter SULastCheckTime
+
+# Check what rpath binary has
+otool -l build/makeHTML.app/Contents/MacOS/makeHTML | grep RPATH -A 2
+```
+
+### File Locations
+
+- Appcast: `appcast.xml` (in repo root)
+- Config: `makeHTML-Swift/build.sh` (lines 177, 179)
+- Signing script: `sign_update.sh` (in repo root, gitignored)
+- Menu integration: `makeHTML-Swift/makeHTMLApp.swift`
+
+---
+
+## What Happens When Users Get Updates
+
+1. Sparkle checks appcast.xml for new versions
+2. If found, shows update dialog with release notes
+3. User clicks "Install Update"
+4. Downloads .zip file from GitHub
+5. Verifies EdDSA signature
+6. Extracts and replaces app
+7. Relaunches with new version
+
+All automatic and secure! 🎉
