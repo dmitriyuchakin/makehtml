@@ -70,7 +70,8 @@
       "Bash(else echo \"File not created yet\")",
       "Bash(fi)",
       "Bash(timeout 10 ./build/makeHTML.app/Contents/MacOS/makeHTML:*)",
-      "Bash(otool:*)"
+      "Bash(otool:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
