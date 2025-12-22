@@ -49,29 +49,33 @@ fi
 echo ""
 echo "[2/4] Building Swift app..."
 
-# Build the app using swiftc directly
+# Build using Swift Package Manager (for Sparkle support)
+swift build -c release
+
+# Set up app bundle structure
 APP_NAME="makeHTML"
 APP_BUNDLE="build/${APP_NAME}.app"
 APP_MACOS="${APP_BUNDLE}/Contents/MacOS"
 APP_RESOURCES="${APP_BUNDLE}/Contents/Resources"
+APP_FRAMEWORKS="${APP_BUNDLE}/Contents/Frameworks"
 
 # Clean and create directories
 rm -rf build
 mkdir -p "$APP_MACOS"
 mkdir -p "$APP_RESOURCES"
+mkdir -p "$APP_FRAMEWORKS"
 
-# Compile the Swift code
-swiftc -o "${APP_MACOS}/${APP_NAME}" \
-    -target arm64-apple-macosx14.0 \
-    -framework SwiftUI \
-    -framework AppKit \
-    -framework UniformTypeIdentifiers \
-    -framework WebKit \
-    makeHTMLApp.swift \
-    ContentView.swift \
-    DocxXMLParser.swift \
-    DocxConverter.swift \
-    ConversionLogger.swift
+# Copy the built binary
+cp .build/release/makeHTML "${APP_MACOS}/${APP_NAME}"
+
+# Copy Sparkle framework
+SPARKLE_FRAMEWORK=".build/arm64-apple-macosx/release/Sparkle.framework"
+if [ -d "$SPARKLE_FRAMEWORK" ]; then
+    cp -R "$SPARKLE_FRAMEWORK" "$APP_FRAMEWORKS/"
+    echo "  ✓ Sparkle framework bundled"
+else
+    echo "  ⚠ Warning: Sparkle framework not found"
+fi
 
 echo "✓ Swift compilation complete"
 
@@ -173,6 +177,10 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>To report bugs and request features, send email to dmitriy@uchakin.com</string>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>YOUR_PUBLIC_KEY_WILL_GO_HERE</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
@@ -195,9 +203,18 @@ PLIST
 echo "✓ Resources bundled"
 
 echo ""
-echo "[4/4] Code signing..."
+echo "[4/4] Code signing and fixing runtime paths..."
 
-# Simple ad-hoc code signing
+# Fix the runtime path for Sparkle framework
+install_name_tool -add_rpath "@executable_path/../Frameworks" "${APP_MACOS}/${APP_NAME}" 2>/dev/null || true
+
+# Code sign the Sparkle framework first
+if [ -d "$APP_FRAMEWORKS/Sparkle.framework" ]; then
+    codesign --force --deep --sign - "$APP_FRAMEWORKS/Sparkle.framework"
+    echo "  ✓ Sparkle framework signed"
+fi
+
+# Simple ad-hoc code signing for the app
 codesign --force --deep --sign - "$APP_BUNDLE"
 
 echo "✓ App signed"

@@ -191,6 +191,12 @@ struct ContentView: View {
                                         .font(.caption)
                                 }
                                 .buttonStyle(.borderless)
+
+                                Button(action: resetApp) {
+                                    Label("Reset", systemImage: "arrow.counterclockwise")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.borderless)
                             }
                             .padding(.horizontal, 8)
 
@@ -437,6 +443,16 @@ struct ContentView: View {
                 htmlContent = html
             }
         }
+    }
+
+    func resetApp() {
+        htmlContent = nil
+        statusMessage = "Drop a .docx file here to convert"
+        lastConvertedFile = nil
+        cssContent = ""
+        isProcessing = false
+        conversionStatus = nil
+        loadStylesheet()  // Reload stylesheet for next conversion
     }
 
     func loadStylesheet() {

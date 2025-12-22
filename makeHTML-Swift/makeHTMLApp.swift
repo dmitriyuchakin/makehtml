@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Sparkle
 
 // App delegate to handle file opening and custom About panel
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -70,6 +71,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct makeHTMLApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    private let updaterController: SPUStandardUpdaterController
+
+    init() {
+        // Initialize Sparkle updater
+        // Set startingUpdater to false to avoid errors if feed URL isn't configured yet
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -77,6 +89,22 @@ struct makeHTMLApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 700, height: 720)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updaterController.updater)
+            }
+        }
+    }
+}
+
+// Check for Updates menu item
+struct CheckForUpdatesView: View {
+    let updater: SPUUpdater
+
+    var body: some View {
+        Button("Check for Updates...") {
+            updater.checkForUpdates()
+        }
     }
 }
 

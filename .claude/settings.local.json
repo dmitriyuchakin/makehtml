@@ -69,7 +69,8 @@
       "Bash(then grep \"About American\" \"/Users/dmitriy/www/AA/docx-html/test docs/Newsroom_Regional Aircraft Enhanced Experience Story.html\")",
       "Bash(else echo \"File not created yet\")",
       "Bash(fi)",
-      "Bash(timeout 10 ./build/makeHTML.app/Contents/MacOS/makeHTML:*)"
+      "Bash(timeout 10 ./build/makeHTML.app/Contents/MacOS/makeHTML:*)",
+      "Bash(otool:*)"
     ],
     "deny": [],
     "ask": []

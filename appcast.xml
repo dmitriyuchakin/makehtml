@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>makeHTML Changelog</title>
+    <link>https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml</link>
+    <description>Most recent changes with links to updates.</description>
+    <language>en</language>
+
+    <!--
+    INSTRUCTIONS FOR UPDATING:
+
+    1. After building a new version, create a .zip of the app:
+       cd makeHTML-Swift/build
+       zip -r makeHTML-VERSION.zip makeHTML.app
+
+    2. Create a GitHub release and upload the .zip file
+
+    3. Generate the EdDSA signature (see SETUP.md for key generation):
+       ./sign_update.sh makeHTML-VERSION.zip
+
+    4. Get the file size:
+       ls -l makeHTML-VERSION.zip
+
+    5. Add a new <item> below with the details
+
+    6. Commit and push this file to GitHub
+    -->
+
+    <!-- Example item - update this for each release -->
+    <item>
+      <title>Version 0.6</title>
+      <link>https://github.com/YOUR_USERNAME/YOUR_REPO</link>
+      <sparkle:version>0.6</sparkle:version>
+      <sparkle:shortVersionString>0.6</sparkle:shortVersionString>
+      <description><![CDATA[
+        <h2>What's New in Version 0.6</h2>
+        <ul>
+          <li>Added automatic line break handling for heading detection</li>
+          <li>Added Reset button to clear preview</li>
+          <li>Added automatic update functionality via Sparkle</li>
+          <li>Bug fixes and improvements</li>
+        </ul>
+      ]]></description>
+      <pubDate>Mon, 10 Dec 2025 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v0.6/makeHTML-0.6.zip"
+        sparkle:edSignature="SIGNATURE_GOES_HERE_AFTER_SIGNING"
+        length="FILE_SIZE_IN_BYTES"
+        type="application/octet-stream"
+      />
+    </item>
+
+    <!-- Previous version example (version 0.5) -->
+    <!--
+    <item>
+      <title>Version 0.5</title>
+      <link>https://github.com/YOUR_USERNAME/YOUR_REPO</link>
+      <sparkle:version>0.5</sparkle:version>
+      <sparkle:shortVersionString>0.5</sparkle:shortVersionString>
+      <description><![CDATA[
+        <h2>What's New in Version 0.5</h2>
+        <ul>
+          <li>Initial release</li>
+        </ul>
+      ]]></description>
+      <pubDate>Mon, 01 Dec 2025 12:00:00 +0000</pubDate>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v0.5/makeHTML-0.5.zip"
+        sparkle:edSignature="SIGNATURE"
+        length="12345678"
+        type="application/octet-stream"
+      />
+    </item>
+    -->
+
+  </channel>
+</rss>

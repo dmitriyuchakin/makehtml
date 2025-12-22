@@ -87,7 +87,7 @@
     }
   ],
   "heading_detection": {
-    "enabled": false,
+    "enabled": true,
     "max_length": 50
   },
   "tidy_formatting": {

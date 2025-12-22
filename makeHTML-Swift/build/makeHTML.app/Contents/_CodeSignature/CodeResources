@@ -6,7 +6,7 @@
 	<dict>
 		<key>Resources/config.json</key>
 		<data>
-		yh8Wr+Vadzq3zpAy69TwfVuQcd4=
+		psT0M3Mrru+QiO7ySTkPZrsk4D4=
 		</data>
 		<key>Resources/header-icon-dark-600.png</key>
 		<data>
@@ -47,11 +47,20 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>Frameworks/Sparkle.framework</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			wfl7AMKzqzzsFgv8aBbYSSBGTx8=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"c1f97b00c2b3ab3cec160bfc6816d84920464f1f" or cdhash H"38b00b6d7d20d7e28e38893ebf0229c3d4a50786"</string>
+		</dict>
 		<key>Resources/config.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			uJOgSRcH6/HJ93FyuSbQ/rNbFTUxBCUk2b2J8hOXrSU=
+			sApeIPeOil1W+Nyvn6P4i2TJM1J/eKgyjpylunX4c3k=
 			</data>
 		</dict>
 		<key>Resources/header-icon-dark-600.png</key>
