@@ -30,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "OK")
 
         // Create attributed string with clickable email link
-        let message = "Version 0.5 (Build 1111)\n\nTo report bugs and request features, send email to \n"
+        let message = "Version 0.5 (Build 1111)\n\nIncludes HTML Tidy (www.html-tidy.org)\nand Sparkle (sparkle-project.org)\n\nTo report bugs and request features, send email to \n"
         let email = "dmitriy@uchakin.com"
 
         let attributedString = NSMutableAttributedString(string: message + email)
@@ -55,7 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         attributedString.addAttribute(.foregroundColor, value: NSColor.linkColor, range: emailRange)
 
         // Create text view to display the message with clickable link
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 80))
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 120))
         textView.textStorage?.setAttributedString(attributedString)
         textView.isEditable = false
         textView.isSelectable = true
