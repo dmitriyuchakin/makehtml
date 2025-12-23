@@ -51,11 +51,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Add link attribute to the email part
         let emailRange = NSRange(location: message.count, length: email.count)
-        attributedString.addAttribute(.link, value: "mailto:dmitriy@uchakin.com", range: emailRange)
+        attributedString.addAttribute(.link, value: "mailto:support@uchakin.com", range: emailRange)
         attributedString.addAttribute(.foregroundColor, value: NSColor.linkColor, range: emailRange)
 
         // Create text view to display the message with clickable link
-        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 120))
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 300, height: 180))
         textView.textStorage?.setAttributedString(attributedString)
         textView.isEditable = false
         textView.isSelectable = true
