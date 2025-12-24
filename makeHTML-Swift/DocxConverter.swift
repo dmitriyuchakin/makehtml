@@ -29,7 +29,6 @@ struct TextDifference {
 
 struct ConversionConfig: Codable {
     let output: OutputConfig
-    let specialCharacters: [SpecialCharacter]
     let replacements: [Replacement]
     let quoteDetection: QuoteDetection
     let linkHandling: LinkHandling
@@ -39,7 +38,6 @@ struct ConversionConfig: Codable {
 
     enum CodingKeys: String, CodingKey {
         case output
-        case specialCharacters = "special_characters"
         case replacements
         case quoteDetection = "quote_detection"
         case linkHandling = "link_handling"
@@ -59,27 +57,19 @@ struct OutputConfig: Codable {
     }
 }
 
-struct SpecialCharacter: Codable {
-    let character: String
-    let wrapTag: String
-    let enabled: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case character
-        case wrapTag = "wrap_tag"
-        case enabled
-    }
-}
-
 struct Replacement: Codable {
     let search: String
-    let replace: String
-    let caseSensitive: Bool
+    let replace: String?
+    let wrapTag: String?
+    let caseSensitive: Bool?
+    let enabled: Bool?
 
     enum CodingKeys: String, CodingKey {
         case search
         case replace
+        case wrapTag = "wrap_tag"
         case caseSensitive = "case_sensitive"
+        case enabled
     }
 }
 
@@ -247,8 +237,7 @@ class DocxConverter {
         // Join all parts
         var html = htmlParts.joined(separator: "\n")
 
-        // Apply transformations
-        html = applySpecialCharacters(to: html)
+        // Apply transformations (unified replacements)
         html = applyReplacements(to: html)
 
         // Format HTML with LibTidy
@@ -922,70 +911,88 @@ class DocxConverter {
 
     // MARK: - Transformations
 
-    private func applySpecialCharacters(to html: String) -> String {
+    /// Wrap text in HTML tags with duplicate prevention
+    private func wrapText(_ html: String, search: String, wrapTag: String, caseSensitive: Bool) -> String {
         var result = html
+        let openTag = "<\(wrapTag)>"
+        let closeTag = "</\(wrapTag)>"
+        let options: String.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+        var searchStart = result.startIndex
 
-        for special in config.specialCharacters where special.enabled {
-            // Simple approach: find all instances and wrap only the unwrapped ones
-            let openTag = "<\(special.wrapTag)>"
-            let closeTag = "</\(special.wrapTag)>"
-            var searchStart = result.startIndex
+        while searchStart < result.endIndex {
+            guard let range = result.range(of: search, options: options, range: searchStart..<result.endIndex) else {
+                break
+            }
 
-            while searchStart < result.endIndex {
-                guard let range = result.range(of: special.character, range: searchStart..<result.endIndex) else {
-                    break
-                }
-
-                // Check if this instance is already wrapped
-                var isWrapped = false
-                if result.distance(from: result.startIndex, to: range.lowerBound) >= openTag.count {
-                    let beforeRange = result.index(range.lowerBound, offsetBy: -openTag.count)..<range.lowerBound
-                    if result[beforeRange] == openTag[...] {
-                        let afterStart = range.upperBound
-                        if result.distance(from: afterStart, to: result.endIndex) >= closeTag.count {
-                            let afterRange = afterStart..<result.index(afterStart, offsetBy: closeTag.count)
-                            if result[afterRange] == closeTag[...] {
-                                isWrapped = true
-                            }
+            // Check if this instance is already wrapped
+            var isWrapped = false
+            if result.distance(from: result.startIndex, to: range.lowerBound) >= openTag.count {
+                let beforeRange = result.index(range.lowerBound, offsetBy: -openTag.count)..<range.lowerBound
+                if result[beforeRange] == openTag[...] {
+                    let afterStart = range.upperBound
+                    if result.distance(from: afterStart, to: result.endIndex) >= closeTag.count {
+                        let afterRange = afterStart..<result.index(afterStart, offsetBy: closeTag.count)
+                        if result[afterRange] == closeTag[...] {
+                            isWrapped = true
                         }
                     }
                 }
+            }
 
-                if !isWrapped {
-                    // Replace this instance
-                    let replacement = "\(openTag)\(special.character)\(closeTag)"
-                    result.replaceSubrange(range, with: replacement)
-                    searchStart = result.index(range.lowerBound, offsetBy: replacement.count)
-                } else {
-                    searchStart = range.upperBound
-                }
+            if !isWrapped {
+                // Wrap this instance
+                let replacement = "\(openTag)\(result[range])\(closeTag)"
+                result.replaceSubrange(range, with: replacement)
+                searchStart = result.index(range.lowerBound, offsetBy: replacement.count)
+            } else {
+                searchStart = range.upperBound
             }
         }
 
         return result
     }
 
+    // MARK: - Text Replacements (Unified)
+    // Handles both:
+    // 1. Wrapping text in tags (wrap_tag mode)
+    // 2. Replacing text with custom HTML (replace mode)
     private func applyReplacements(to html: String) -> String {
         var result = html
 
-        for replacement in config.replacements {
-            // For single-character replacements (like nbsp), use simple replacement
-            // to avoid issues with regex patterns and formatting tag handling
-            if replacement.search.count == 1 {
-                let options: String.CompareOptions = replacement.caseSensitive ? [] : [.caseInsensitive]
-                result = result.replacingOccurrences(
-                    of: replacement.search,
-                    with: replacement.replace,
-                    options: options
-                )
-            } else {
-                result = replaceInTextContent(
-                    in: result,
-                    search: replacement.search,
-                    replace: replacement.replace,
-                    caseSensitive: replacement.caseSensitive,
-                    wrapTag: nil
-                )
+        for replacement in config.replacements where replacement.enabled ?? true {
+            // Validate: must have either replace OR wrapTag (not both)
+            guard (replacement.replace != nil) != (replacement.wrapTag != nil) else {
+                continue // Skip invalid config
+            }
+
+            if let wrapTag = replacement.wrapTag {
+                // WRAPPING MODE (old special_characters behavior)
+                result = wrapText(result,
+                                search: replacement.search,
+                                wrapTag: wrapTag,
+                                caseSensitive: replacement.caseSensitive ?? false)
+            } else if let replaceWith = replacement.replace {
+                // REPLACEMENT MODE (existing behavior)
+                let caseSensitive = replacement.caseSensitive ?? true
+
+                // For single-character replacements (like nbsp), use simple replacement
+                // to avoid issues with regex patterns and formatting tag handling
+                if replacement.search.count == 1 {
+                    let options: String.CompareOptions = caseSensitive ? [] : [.caseInsensitive]
+                    result = result.replacingOccurrences(
+                        of: replacement.search,
+                        with: replaceWith,
+                        options: options
+                    )
+                } else {
+                    result = replaceInTextContent(
+                        in: result,
+                        search: replacement.search,
+                        replace: replaceWith,
+                        caseSensitive: caseSensitive,
+                        wrapTag: nil
+                    )
+                }
             }
         }
 
@@ -1139,15 +1146,12 @@ class DocxConverter {
         }
 
         // Build pattern to match the search text potentially wrapped in <u> tags and split across them
-        let escapedSearch = NSRegularExpression.escapedPattern(for: search)
-
-        // Allow </u><u> between any characters in the search string
+        // Iterate through original search string characters, escape each one, then add optional split
         var flexiblePattern = ""
-        for char in escapedSearch {
-            flexiblePattern += String(char)
-            if char != "\\" {  // Don't add split pattern after escape characters
-                flexiblePattern += "(?:</u><u>)?"
-            }
+        for char in search {
+            let escapedChar = NSRegularExpression.escapedPattern(for: String(char))
+            flexiblePattern += escapedChar
+            flexiblePattern += "(?:</u><u>)?"
         }
 
         // Wrap pattern to optionally match surrounding <u> tags
@@ -1158,11 +1162,17 @@ class DocxConverter {
         }
 
         let range = NSRange(text.startIndex..., in: text)
+
+        // Escape the replacement string for use as regex template
+        // Replace \ with \\ and $ with \$
+        let escapedReplace = replace.replacingOccurrences(of: "\\", with: "\\\\")
+                                   .replacingOccurrences(of: "$", with: "\\$")
+
         return regex.stringByReplacingMatches(
             in: text,
             options: [],
             range: range,
-            withTemplate: replace
+            withTemplate: escapedReplace
         )
     }
 

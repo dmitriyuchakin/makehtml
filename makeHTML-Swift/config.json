@@ -3,24 +3,19 @@
     "paragraph_tag": "p",
     "heading_tag": "h3"
   },
-  "special_characters": [
-    {
-      "character": "\u00a9",
-      "wrap_tag": "sup",
-      "enabled": true
-    },
-    {
-      "character": "\u00ae",
-      "wrap_tag": "sup",
-      "enabled": true
-    },
-    {
-      "character": "\u2122",
-      "wrap_tag": "sup",
-      "enabled": true
-    }
-  ],
   "replacements": [
+    {
+      "search": "\u00a9",
+      "wrap_tag": "sup"
+    },
+    {
+      "search": "\u00ae",
+      "wrap_tag": "sup"
+    },
+    {
+      "search": "\u2122",
+      "wrap_tag": "sup"
+    },
     {
       "search": "@AmericanAir",
       "replace": "<a target=\"blank\" href=\"https:/x.com/AmericanAir\">@AmericanAir</a>",
