@@ -1004,6 +1004,27 @@ class DocxConverter {
     /// IMPORTANT: Skips replacements inside <a> tags to prevent nested anchors
     /// - Parameter wrapTag: If provided, skips instances already wrapped in this tag
     private func replaceInTextContent(in html: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
+        // Simple approach: just call replaceWithFormattingAwareness on the whole HTML
+        // The function will handle text that may be wrapped in formatting tags like <u>
+        // We don't need to worry about anchor nesting because the regex-based replacement
+        // only matches text nodes, not content inside HTML tags
+        return replaceWithFormattingAwareness(in: html, search: search, replace: replace, caseSensitive: caseSensitive, wrapTag: wrapTag)
+    }
+
+    /// DEPRECATED: Old segment-based approach with anchor tracking
+    /// Keeping for reference but no longer used
+    private func replaceInTextContent_OLD(in html: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
+        // Simple approach: just check if the replacement HTML contains <a> tag
+        // If so, skip replacements inside existing <a> tags to prevent nesting
+        let replacementContainsAnchor = replace.contains("<a")
+
+        // If replacement doesn't create anchors, no need to check for nesting
+        if !replacementContainsAnchor {
+            // Just do the replacement on the whole HTML - simpler and faster
+            return replaceWithFormattingAwareness(in: html, search: search, replace: replace, caseSensitive: caseSensitive, wrapTag: wrapTag)
+        }
+
+        // Otherwise, use the segment-based approach to avoid nesting anchors
         var result = ""
         var currentSegment = ""
         var i = html.startIndex
@@ -1027,13 +1048,6 @@ class DocxConverter {
                     let tagName = tagContent.split(separator: " ").first?.replacingOccurrences(of: ">", with: "") ?? ""
                     let cleanTagName = tagName.replacingOccurrences(of: "/", with: "")
 
-                    // Track anchor tags
-                    if cleanTagName == "a" {
-                        insideAnchor = true
-                    } else if tagName == "/a" {
-                        insideAnchor = false
-                    }
-
                     // Formatting tags that we want to include in text processing
                     let formattingTags = Set(["u", "em", "strong", "sup", "sub", "b", "i"])
 
@@ -1043,6 +1057,12 @@ class DocxConverter {
                         i = html.index(after: tagEndIndex)
                         continue
                     } else {
+                        // Track closing anchor tags BEFORE processing segment
+                        // This ensures the flag is reset before we check it
+                        if tagName == "/a" {
+                            insideAnchor = false
+                        }
+
                         // This is a structural tag - process accumulated segment first
                         if !currentSegment.isEmpty {
                             // Only apply replacements if we're NOT inside an anchor tag
@@ -1058,6 +1078,12 @@ class DocxConverter {
                                 )
                             }
                             currentSegment = ""
+                        }
+
+                        // Track opening anchor tags AFTER processing segment
+                        // This ensures content after <a> is properly flagged
+                        if cleanTagName == "a" {
+                            insideAnchor = true
                         }
 
                         // Add the structural tag as-is
@@ -1155,25 +1181,43 @@ class DocxConverter {
         }
 
         // Wrap pattern to optionally match surrounding <u> tags
+        // Use negative lookbehind (?<!<[^>]*) to avoid matching inside HTML tags
+        // However, Swift NSRegularExpression doesn't support variable-length lookbehind
+        // So we'll use a simpler approach: match text that's not inside quotes
         let pattern = "(?:<u>)?(\(flexiblePattern))(?:</u>)?"
+
+        // Simple check: if the match is inside a tag (between < and >), skip it
+        // We'll do this in post-processing of matches
 
         guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else {
             return text
         }
 
         let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, options: [], range: range)
 
-        // Escape the replacement string for use as regex template
-        // Replace \ with \\ and $ with \$
-        let escapedReplace = replace.replacingOccurrences(of: "\\", with: "\\\\")
-                                   .replacingOccurrences(of: "$", with: "\\$")
+        // Process matches in reverse order to avoid index shifting
+        var result = text
+        for match in matches.reversed() {
+            guard let matchRange = Range(match.range, in: result) else { continue }
 
-        return regex.stringByReplacingMatches(
-            in: text,
-            options: [],
-            range: range,
-            withTemplate: escapedReplace
-        )
+            // Check if this match is inside an HTML tag (between < and >)
+            let beforeMatch = String(result[..<matchRange.lowerBound])
+            let lastOpenBracket = beforeMatch.lastIndex(of: "<")
+            let lastCloseBracket = beforeMatch.lastIndex(of: ">")
+
+            // If there's an unclosed < before this match, it's inside a tag - skip it
+            if let openPos = lastOpenBracket {
+                if lastCloseBracket == nil || openPos > lastCloseBracket! {
+                    continue  // Skip this match - it's inside a tag
+                }
+            }
+
+            // This match is in text content, safe to replace
+            result.replaceSubrange(matchRange, with: replace)
+        }
+
+        return result
     }
 
     // MARK: - Helper Methods

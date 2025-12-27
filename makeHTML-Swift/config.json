@@ -18,17 +18,17 @@
     },
     {
       "search": "@AmericanAir",
-      "replace": "<a target=\"blank\" href=\"https:/x.com/AmericanAir\">@AmericanAir</a>",
+      "replace": "<a class=\"makehtml\" target=\"blank\" href=\"https://x.com/AmericanAir\">@AmericanAir</a>",
       "case_sensitive": true
     },
     {
       "search": "news.aa.com",
-      "replace": "<a href=\"https://news.aa.com\">news.aa.com</a>",
+      "replace": "<a class=\"makehtml\" href=\"https:/news.aa.com\">news.aa.com</a>",
       "case_sensitive": true
     },
     {
       "search": "Facebook.com/AmericanAirlines",
-      "replace": "<a target=\"blank\" href=\"https://facebook.com/AmericanAirlines\">Facebook.com/AmericanAirlines</a>",
+      "replace": "<a class=\"makehtml\" target=\"blank\" href=\"https://facebook.com/AmericanAirlines\">Facebook.com/AmericanAirlines</a>",
       "case_sensitive": true
     },
     {

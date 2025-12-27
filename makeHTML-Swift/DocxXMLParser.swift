@@ -77,6 +77,14 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
     private var currentHyperlink: DocxHyperlink?
     private var hyperlinkText: String = ""
     private var hyperlinkRelId: String?
+
+    // Field-based hyperlink state (for HYPERLINK field codes)
+    private var inFieldHyperlink: Bool = false
+    private var fieldHyperlinkURL: String?
+    private var fieldHyperlinkText: String = ""
+    private var fieldInstrText: String = ""  // Accumulates instrText content
+    private var collectingFieldText: Bool = false
+
     private var isHeading: Bool = false
     private var listLevel: Int?
     private var listType: String?
@@ -184,6 +192,43 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
             hyperlinkText = ""
             hyperlinkRelId = attributeDict["r:id"] ?? attributeDict["id"]
 
+        case "fldChar": // Field character (for HYPERLINK field codes)
+            if let fldCharType = attributeDict["w:fldCharType"] ?? attributeDict["fldCharType"] {
+                if fldCharType == "begin" {
+                    // Start of a field
+                    inFieldHyperlink = false
+                    fieldHyperlinkURL = nil
+                    fieldHyperlinkText = ""
+                    fieldInstrText = ""
+                    collectingFieldText = false
+                } else if fldCharType == "separate" {
+                    // Separator between field instruction and field result
+                    // Now process the accumulated instrText
+                    if fieldInstrText.contains("HYPERLINK") {
+                        // XMLParser automatically decodes entities, so &quot; becomes "
+                        if let urlMatch = fieldInstrText.range(of: #""([^"]+)""#, options: .regularExpression) {
+                            let urlWithQuotes = String(fieldInstrText[urlMatch])
+                            fieldHyperlinkURL = urlWithQuotes.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                            inFieldHyperlink = true
+                        }
+                    }
+                    // After this, text nodes contain the displayed text
+                    collectingFieldText = inFieldHyperlink
+                } else if fldCharType == "end" {
+                    // End of field
+                    if inFieldHyperlink, let url = fieldHyperlinkURL, !fieldHyperlinkText.isEmpty {
+                        // Create hyperlink from field
+                        let hyperlink = DocxHyperlink(url: url, text: fieldHyperlinkText)
+                        paragraphContents.append(.hyperlink(hyperlink))
+                    }
+                    inFieldHyperlink = false
+                    fieldHyperlinkURL = nil
+                    fieldHyperlinkText = ""
+                    fieldInstrText = ""
+                    collectingFieldText = false
+                }
+            }
+
         case "tbl": // Table start
             tableRows = []
 
@@ -201,9 +246,19 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, foundCharacters string: String) {
         let localName = currentPath.last ?? ""
 
+        // Handle instrText for field-based hyperlinks
+        if localName == "instrText" {
+            // Accumulate instrText content (XMLParser may call this multiple times)
+            fieldInstrText += string
+        }
+
         // Only capture text within <w:t> elements
         if localName == "t" {
-            if inTableCell() {
+            if collectingFieldText {
+                // Collecting text for field-based hyperlink
+                fieldHyperlinkText += string
+                NSLog("[makeHTML] Collecting field text: '\(string)' (total: '\(fieldHyperlinkText)')")
+            } else if inTableCell() {
                 cellText += string
             } else if inHyperlink() {
                 hyperlinkText += string
@@ -219,7 +274,9 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
 
         switch localName {
         case "r": // Run end
-            if inHyperlink() {
+            if collectingFieldText {
+                // This run is part of a field-based hyperlink, skip it (already collected)
+            } else if inHyperlink() {
                 // This run is part of a hyperlink, skip it (will be handled by hyperlink end)
             } else if inTableCell() {
                 // Table cell text handling
