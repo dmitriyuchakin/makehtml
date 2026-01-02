@@ -1,5 +1,4 @@
 sign_update.sh
-test docs/
 .claude/
 makeHTML-Swift/build/
 makeHTML-Swift/.build/
