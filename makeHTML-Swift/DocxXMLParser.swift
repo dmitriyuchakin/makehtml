@@ -67,6 +67,9 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
     private var elements: [DocxBodyElement] = []
     private var relationships: [String: String] = [:]
 
+    // Replacement search terms for conflict detection
+    private var replacementSearchTerms: Set<String> = []
+
     // Current parsing state
     private var currentPath: [String] = []
     private var currentParagraph: DocxParagraph?
@@ -108,8 +111,9 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
 
     // MARK: - Public Interface
 
-    func parse(documentData: Data, relationships: [String: String]) throws -> DocxDocument {
+    func parse(documentData: Data, relationships: [String: String], replacementSearchTerms: Set<String> = []) throws -> DocxDocument {
         self.relationships = relationships
+        self.replacementSearchTerms = replacementSearchTerms
         self.elements = []
 
         let parser = XMLParser(data: documentData)
@@ -217,9 +221,21 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
                 } else if fldCharType == "end" {
                     // End of field
                     if inFieldHyperlink, let url = fieldHyperlinkURL, !fieldHyperlinkText.isEmpty {
-                        // Create hyperlink from field
-                        let hyperlink = DocxHyperlink(url: url, text: fieldHyperlinkText)
-                        paragraphContents.append(.hyperlink(hyperlink))
+                        // Check if field hyperlink text matches any replacement search term
+                        let matchesReplacement = replacementSearchTerms.contains { searchTerm in
+                            fieldHyperlinkText.range(of: searchTerm, options: .caseInsensitive) != nil
+                        }
+
+                        if matchesReplacement {
+                            // Convert to plain text run
+                            let run = DocxRun(text: fieldHyperlinkText, isBold: false, isItalic: false,
+                                             isUnderline: false, isSuperscript: false, isSubscript: false)
+                            paragraphContents.append(.run(run))
+                        } else {
+                            // Create hyperlink from field
+                            let hyperlink = DocxHyperlink(url: url, text: fieldHyperlinkText)
+                            paragraphContents.append(.hyperlink(hyperlink))
+                        }
                     }
                     inFieldHyperlink = false
                     fieldHyperlinkURL = nil
@@ -296,8 +312,21 @@ class DocxXMLParser: NSObject, XMLParserDelegate {
 
         case "hyperlink": // Hyperlink end
             if let relId = hyperlinkRelId, let url = relationships[relId] {
-                let hyperlink = DocxHyperlink(url: url, text: hyperlinkText)
-                paragraphContents.append(.hyperlink(hyperlink))
+                // Check if hyperlink text matches any replacement search term
+                let matchesReplacement = replacementSearchTerms.contains { searchTerm in
+                    hyperlinkText.range(of: searchTerm, options: .caseInsensitive) != nil
+                }
+
+                if matchesReplacement {
+                    // Convert to plain text run - let config handle linking
+                    let run = DocxRun(text: hyperlinkText, isBold: false, isItalic: false,
+                                     isUnderline: false, isSuperscript: false, isSubscript: false)
+                    paragraphContents.append(.run(run))
+                } else {
+                    // Keep as hyperlink - no conflict
+                    let hyperlink = DocxHyperlink(url: url, text: hyperlinkText)
+                    paragraphContents.append(.hyperlink(hyperlink))
+                }
             }
             hyperlinkText = ""
             hyperlinkRelId = nil

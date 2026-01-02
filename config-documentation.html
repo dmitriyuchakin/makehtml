@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>makeHTML Configuration Guide</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            color: #333;
+        }
+        h1 {
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        h2 {
+            margin-top: 40px;
+            color: #555;
+        }
+        pre {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 12px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .explanation {
+            margin: 10px 0 30px 0;
+        }
+        .note {
+            background: #fffbea;
+            border-left: 4px solid #f5c842;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>makeHTML Configuration Guide</h1>
+    <p>This guide explains the <code>config.json</code> file that controls how makeHTML converts DOCX files to HTML.</p>
+    <p><strong>Location:</strong> <code>~/Library/Application Support/makeHTML/config.json</code></p>
+
+    <h2>Replacement Mode</h2>
+    <pre><code>"replacements_mode": "aggressive"</code></pre>
+    <div class="explanation">
+        <p>Controls how replacements interact with hyperlinks from the DOCX file:</p>
+        <ul>
+            <li><strong>aggressive</strong> - Config replacements override DOCX hyperlinks. If both exist for the same text, the config replacement wins.</li>
+            <li><strong>safe</strong> - DOCX hyperlinks are preserved. Replacements will not apply to text that's already hyperlinked in the DOCX.</li>
+        </ul>
+    </div>
+
+    <h2>Output Settings</h2>
+    <pre><code>"output": {
+  "paragraph_tag": "p",
+  "heading_tag": "h3"
+}</code></pre>
+    <div class="explanation">
+        <p><strong>paragraph_tag:</strong> HTML tag to use for regular paragraphs (typically <code>p</code>)</p>
+        <p><strong>heading_tag:</strong> HTML tag to use for detected headings (e.g., <code>h1</code>, <code>h2</code>, <code>h3</code>)</p>
+    </div>
+
+    <h2>Replacements</h2>
+    <pre><code>"replacements": [
+  {
+    "search": "©",
+    "wrap_tag": "sup"
+  },
+  {
+    "search": "@AmericanAir",
+    "replace": "&lt;a href=\"...\"&gt;@AmericanAir&lt;/a&gt;",
+    "case_sensitive": true
+  }
+]</code></pre>
+    <div class="explanation">
+        <p>Search and replace rules applied to the HTML output. Each replacement can have:</p>
+        <ul>
+            <li><strong>search:</strong> Text to find (can be plain text or Unicode characters like <code>\u00a9</code> for ©)</li>
+            <li><strong>replace:</strong> HTML to replace with (can include tags)</li>
+            <li><strong>wrap_tag:</strong> Alternative to replace - wraps the found text in an HTML tag (e.g., <code>sup</code>, <code>strong</code>)</li>
+            <li><strong>case_sensitive:</strong> Whether the search is case-sensitive (default: false)</li>
+            <li><strong>enabled:</strong> Whether this replacement is active (default: true)</li>
+        </ul>
+        <div class="note">
+            <strong>Note:</strong> Use either <code>replace</code> or <code>wrap_tag</code>, not both.
+        </div>
+    </div>
+
+    <h2>Quote Detection</h2>
+    <pre><code>"quote_detection": {
+  "enabled": true,
+  "threshold": 3,
+  "wrap_open": "&lt;div class=\"blockquote\"&gt;&lt;p&gt;",
+  "wrap_close": "&lt;/p&gt;&lt;/div&gt;",
+  "quote_types": ["\"", "\u201C", "\u201D"]
+}</code></pre>
+    <div class="explanation">
+        <p>Automatically detects paragraphs with many quotation marks and wraps them in special HTML.</p>
+        <ul>
+            <li><strong>enabled:</strong> Turn quote detection on/off</li>
+            <li><strong>threshold:</strong> Minimum number of quote characters needed to trigger detection</li>
+            <li><strong>wrap_open:</strong> HTML to insert before the quote paragraph</li>
+            <li><strong>wrap_close:</strong> HTML to insert after the quote paragraph</li>
+            <li><strong>quote_types:</strong> Which characters count as quotes</li>
+        </ul>
+    </div>
+
+    <h2>Link Handling</h2>
+    <pre><code>"link_handling": {
+  "enabled": true,
+  "add_target_blank": true,
+  "exception_domains": ["news.aa.com", "jetnet.aa.com"]
+}</code></pre>
+    <div class="explanation">
+        <p>Controls how hyperlinks from the DOCX are processed.</p>
+        <ul>
+            <li><strong>enabled:</strong> Turn link handling on/off</li>
+            <li><strong>add_target_blank:</strong> Add <code>target="_blank"</code> to links (opens in new tab)</li>
+            <li><strong>exception_domains:</strong> Domains that should NOT get <code>target="_blank"</code></li>
+        </ul>
+    </div>
+
+    <h2>Code Snippets</h2>
+    <pre><code>"code_snippets": [
+  {
+    "name": "Photo grid 3x1",
+    "file": "snippets/photo-grid-3x1.html",
+    "enabled": false
+  }
+]</code></pre>
+    <div class="explanation">
+        <p>Predefined HTML snippets you can insert into your documents.</p>
+        <ul>
+            <li><strong>name:</strong> Display name for the snippet</li>
+            <li><strong>file:</strong> Path to the HTML file (relative to the Application Support folder)</li>
+            <li><strong>enabled:</strong> Whether the snippet appears in the menu</li>
+        </ul>
+    </div>
+
+    <h2>Heading Detection</h2>
+    <pre><code>"heading_detection": {
+  "enabled": true,
+  "max_length": 50
+}</code></pre>
+    <div class="explanation">
+        <p>Automatically converts short, bold paragraphs to headings.</p>
+        <ul>
+            <li><strong>enabled:</strong> Turn heading detection on/off</li>
+            <li><strong>max_length:</strong> Maximum character length for a paragraph to be considered a heading</li>
+        </ul>
+    </div>
+
+    <h2>Tidy Formatting</h2>
+    <pre><code>"tidy_formatting": {
+  "enabled": true,
+  "indent_spaces": 2,
+  "wrap_length": 80,
+  "vertical_space": true,
+  "show_body_only": true,
+  "custom_options": ["--indent-attributes", "yes"]
+}</code></pre>
+    <div class="explanation">
+        <p>Controls HTML formatting using the HTML Tidy library.</p>
+        <ul>
+            <li><strong>enabled:</strong> Turn tidy formatting on/off</li>
+            <li><strong>indent_spaces:</strong> Number of spaces for indentation</li>
+            <li><strong>wrap_length:</strong> Maximum line length before wrapping</li>
+            <li><strong>vertical_space:</strong> Add blank lines between elements for readability</li>
+            <li><strong>show_body_only:</strong> Output only the HTML body content (no <code>&lt;html&gt;</code>, <code>&lt;head&gt;</code>, etc.)</li>
+            <li><strong>custom_options:</strong> Additional Tidy options (see <a href="https://api.html-tidy.org/tidy/quickref_5.8.0.html">Tidy documentation</a>)</li>
+        </ul>
+    </div>
+
+</body>
+</html>

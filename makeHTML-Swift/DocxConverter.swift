@@ -27,9 +27,15 @@ struct TextDifference {
 
 // MARK: - Configuration Models
 
+enum ReplacementMode: String, Codable {
+    case aggressive  // Config replacements override DOCX hyperlinks
+    case safe        // Preserve DOCX hyperlinks, don't strip them
+}
+
 struct ConversionConfig: Codable {
     let output: OutputConfig
     let replacements: [Replacement]
+    let replacementsMode: ReplacementMode
     let quoteDetection: QuoteDetection
     let linkHandling: LinkHandling
     let codeSnippets: [ConfigCodeSnippet]
@@ -39,6 +45,7 @@ struct ConversionConfig: Codable {
     enum CodingKeys: String, CodingKey {
         case output
         case replacements
+        case replacementsMode = "replacements_mode"
         case quoteDetection = "quote_detection"
         case linkHandling = "link_handling"
         case codeSnippets = "code_snippets"
@@ -182,9 +189,26 @@ class DocxConverter {
         let relsPath = tempDir.appendingPathComponent("word/_rels/document.xml.rels")
         let relationships = try parseRelationships(at: relsPath)
 
+        // Build set of replacement search terms to detect conflicts
+        // Only in aggressive mode - safe mode preserves all DOCX hyperlinks
+        let replacementSearchTerms: Set<String>
+        if config.replacementsMode == .aggressive {
+            replacementSearchTerms = Set(
+                config.replacements
+                    .filter { $0.enabled ?? true }
+                    .map { $0.search }
+            )
+        } else {
+            replacementSearchTerms = []
+        }
+
         // Parse document using XMLParser (preserves whitespace!)
         let parser = DocxXMLParser()
-        return try parser.parse(documentData: documentData, relationships: relationships)
+        return try parser.parse(
+            documentData: documentData,
+            relationships: relationships,
+            replacementSearchTerms: replacementSearchTerms
+        )
     }
 
     private func renderDocument(_ document: DocxDocument) throws -> String {
@@ -1001,19 +1025,21 @@ class DocxConverter {
 
     /// Replace text only in HTML text content, not in tags or attributes
     /// Also handles text split across formatting tags like </u><u>
-    /// IMPORTANT: Skips replacements inside <a> tags to prevent nested anchors
+    /// IMPORTANT: Skips replacements inside <a> tags to prevent nested anchors in safe mode
     /// - Parameter wrapTag: If provided, skips instances already wrapped in this tag
     private func replaceInTextContent(in html: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
-        // Simple approach: just call replaceWithFormattingAwareness on the whole HTML
-        // The function will handle text that may be wrapped in formatting tags like <u>
-        // We don't need to worry about anchor nesting because the regex-based replacement
-        // only matches text nodes, not content inside HTML tags
+        // In safe mode, use anchor-aware replacement to prevent nesting
+        if config.replacementsMode == .safe && replace.contains("<a") {
+            return replaceInTextContentSkippingAnchors(in: html, search: search, replace: replace, caseSensitive: caseSensitive, wrapTag: wrapTag)
+        }
+
+        // In aggressive mode or non-anchor replacements, use simple approach
         return replaceWithFormattingAwareness(in: html, search: search, replace: replace, caseSensitive: caseSensitive, wrapTag: wrapTag)
     }
 
-    /// DEPRECATED: Old segment-based approach with anchor tracking
-    /// Keeping for reference but no longer used
-    private func replaceInTextContent_OLD(in html: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
+    /// Segment-based approach with anchor tracking
+    /// Used in safe mode to prevent nested anchors by skipping replacements inside existing <a> tags
+    private func replaceInTextContentSkippingAnchors(in html: String, search: String, replace: String, caseSensitive: Bool, wrapTag: String? = nil) -> String {
         // Simple approach: just check if the replacement HTML contains <a> tag
         // If so, skip replacements inside existing <a> tags to prevent nesting
         let replacementContainsAnchor = replace.contains("<a")
@@ -1057,12 +1083,6 @@ class DocxConverter {
                         i = html.index(after: tagEndIndex)
                         continue
                     } else {
-                        // Track closing anchor tags BEFORE processing segment
-                        // This ensures the flag is reset before we check it
-                        if tagName == "/a" {
-                            insideAnchor = false
-                        }
-
                         // This is a structural tag - process accumulated segment first
                         if !currentSegment.isEmpty {
                             // Only apply replacements if we're NOT inside an anchor tag
@@ -1080,8 +1100,13 @@ class DocxConverter {
                             currentSegment = ""
                         }
 
-                        // Track opening anchor tags AFTER processing segment
-                        // This ensures content after <a> is properly flagged
+                        // Track closing anchor tags AFTER processing segment
+                        // This ensures content inside anchor is processed with insideAnchor=true
+                        if tagName == "/a" {
+                            insideAnchor = false
+                        }
+
+                        // Track opening anchor tags
                         if cleanTagName == "a" {
                             insideAnchor = true
                         }
