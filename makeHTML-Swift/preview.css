@@ -1,0 +1,159 @@
+/* makeHTML Preview Stylesheet */
+/* Edit this file to customize how converted HTML appears in the preview */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #ffffff;
+}
+
+/* Headings */
+h3 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #1a1a1a;
+}
+
+/* Paragraphs */
+p {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+/* Links */
+a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Lists */
+ul,
+ol {
+  padding-left: 2em;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+li {
+  margin-bottom: 0.25em;
+}
+
+/* Blockquotes */
+blockquote {
+  margin: 0;
+  padding: 0 1em;
+  color: #666;
+  border-left: 0.25em solid #dfe2e5;
+  margin-bottom: 16px;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+table th,
+table td {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e5;
+}
+
+table th {
+  font-weight: 600;
+  background-color: #f6f8fa;
+}
+
+table tr {
+  background-color: #fff;
+  border-top: 1px solid #c6cbd1;
+}
+
+/* Superscript (for special characters) */
+sup {
+  font-size: 0.75em;
+  vertical-align: super;
+  color: #666;
+}
+
+/* Strong/Bold */
+strong {
+  font-weight: 600;
+}
+
+/* Emphasis/Italic */
+em {
+  font-style: italic;
+}
+
+/* Horizontal Rule */
+hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #e1e4e8;
+  border: 0;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 16px 0;
+}
+
+.responsive-col {
+  margin-bottom: 20px;
+}
+.responsive-col::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+.responsive-col > div {
+  margin-left: 1.5%;
+  float: left;
+}
+
+.responsive-col > .three-col-one,
+.responsive-col > .three-col-two,
+.responsive-col > .three-col-three {
+  width: 32.33333%;
+}
+.responsive-col > .two-col-one,
+.responsive-col > .two-col-two {
+  width: 49.25%;
+}
+.responsive-col > div:first-child {
+  margin-left: 0;
+}
+
+p.image-caption {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.blockquote {
+  box-sizing: border-box;
+  padding: 20px;
+  border-left: 3px solid #4db4fa;
+  margin-top: 24px;
+  margin-bottom: 20px;
+  color: #36495a;
+  background: #ededed;
+}
