@@ -41,6 +41,7 @@
         length="3880666"
         type="application/octet-stream"
       />
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
     </item>
     <item>
       <title>Version 0.7.1</title>
@@ -56,6 +57,7 @@
         length="3880666"
         type="application/octet-stream"
       />
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
     </item>
     
     
@@ -73,6 +75,7 @@
         length="3880662"
         type="application/octet-stream"
       />
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
     </item>
 
 
