@@ -28,6 +28,22 @@
 
     <!-- Example item - update this for each release -->
     <item>
+      <title>Version 0.7.3</title>
+      <sparkle:releaseNotesLink>
+        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.3
+      </sparkle:releaseNotesLink>
+      <pubDate>Fri, 2 Jan 2026 12:07:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.3/makeHTML.zip"
+        sparkle:version="0.7.3"
+        sparkle:shortVersionString="0.7.3"
+        sparkle:edSignature="Bw5wyEqIglSg6qakdWKN1OhyOp7Cc22gWiZ6fddU5Ok="
+        length="3880664"
+        type="application/octet-stream"
+      />
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+    </item>
+    <item>
       <title>Version 0.7.2</title>
       <sparkle:releaseNotesLink>
         https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.2
