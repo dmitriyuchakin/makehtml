@@ -92,17 +92,20 @@ git push origin v1.0.1
 
 ### 7. Update Public Branch
 
+**Note**: The `public` branch is an orphan branch (no shared history with `main`), so you need to manually copy changed files instead of merging.
+
 ```bash
 # Switch to public branch
 git checkout public
 
-# Merge changes from main (review before committing)
-git merge main --no-commit
+# Copy updated files from main branch (this automatically stages them)
+git checkout main -- appcast.xml makeHTML-Swift/
 
-# Review what's being merged
+# Review what changed
 git status
+git diff --cached  # Shows staged changes
 
-# Commit the merge
+# Commit the changes (files are already staged)
 git commit -m "Release v1.0.1"
 
 # Tag the public branch
@@ -146,9 +149,10 @@ git commit -am "Prepare release vX.X.X"
 git tag -a vX.X.X -m "Release vX.X.X: Description"
 git push origin main && git push origin vX.X.X
 
-# Update public
+# Update public (orphan branch - copy files manually)
 git checkout public
-git merge main --no-commit
+git checkout main -- appcast.xml makeHTML-Swift/
+git add .
 git commit -m "Release vX.X.X"
 git tag -a vX.X.X -m "Release vX.X.X: Description"
 git push public public:main && git push public vX.X.X
