@@ -29,8 +29,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
 
+        // Get version info from Info.plist
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+
         // Create attributed string with clickable email link
-        let message = "Version 0.5 (Build 1111)\n\nIncludes HTML Tidy (www.html-tidy.org)\nand Sparkle (sparkle-project.org)\n\nTo report bugs and request features, send email to \n"
+        let message = "Version \(version) (Build \(build))\n\nIncludes HTML Tidy (www.html-tidy.org)\nand Sparkle (sparkle-project.org)\n\nTo report bugs and request features, send email to \n"
         let email = "dmitriy@uchakin.com"
 
         let attributedString = NSMutableAttributedString(string: message + email)
