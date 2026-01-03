@@ -29,22 +29,16 @@
     <!-- Example item - update this for each release -->
     <item>
       <title>Version 0.6</title>
-      <link>https://github.com/dmitriyuchakin/makehtml</link>
-      <sparkle:version>0.6</sparkle:version>
-      <sparkle:shortVersionString>0.6</sparkle:shortVersionString>
-      <description><![CDATA[
-        <h2>What's New in Version 0.6</h2>
-        <ul>
-          <li>Bug fixes</li>
-          <li>Automatic updates/li>
-        </ul>
-      ]]></description>
-      <pubDate>Mon, 10 Dec 2025 12:00:00 +0000</pubDate>
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>
+        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.6
+      </sparkle:releaseNotesLink>
+      <pubDate>Fri, 2 Jan 2026 12:00:00 +0000</pubDate>
       <enclosure
-        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.6/makeHTML-0.6.zip"
-        sparkle:edSignature="SIGNATURE_GOES_HERE_AFTER_SIGNING"
-        length="FILE_SIZE_IN_BYTES"
+        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.6/makeHTML.zip"
+        sparkle:version="0.6"
+        sparkle:shortVersionString="0.6"
+        sparkle:edSignature="AQaK8LEiUmVPv9gzXLbZhXXU1W/ngwGz2L0phA6N5Ws="
+        length="3880663"
         type="application/octet-stream"
       />
     </item>
