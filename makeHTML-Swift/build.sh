@@ -6,8 +6,8 @@
 set -e
 
 # Version configuration
-APP_VERSION="0.5"
-BUILD_NUMBER="1111"
+APP_VERSION="0.6"
+BUILD_NUMBER="260101"
 
 echo "========================================="
 echo "Building makeHTML Native macOS App"
@@ -39,6 +39,8 @@ fi
 if [ -f "$TIDY_SOURCE" ]; then
     echo "  Found tidy at: $TIDY_SOURCE"
     TIDY_TEMP="./tidy-binary"
+    # Remove existing tidy-binary if it exists (fixes permission issues)
+    rm -f "$TIDY_TEMP"
     cp "$TIDY_SOURCE" "$TIDY_TEMP"
     echo "✓ Tidy binary ready for bundling"
 else
@@ -178,9 +180,9 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <key>NSHumanReadableCopyright</key>
     <string>To report bugs and request features, send email to dmitriy@uchakin.com</string>
     <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml</string>
+    <string>https://raw.githubusercontent.com/dmitriyuchakin/makehtml/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string>YOUR_PUBLIC_KEY_WILL_GO_HERE</string>
+    <string>85PC0N/RsE5c4jTQl59qWx0Wbu7etZ1kP1YfU62VBxI=</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
