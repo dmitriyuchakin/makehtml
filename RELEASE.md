@@ -108,10 +108,7 @@ git diff --cached  # Shows staged changes
 # Commit the changes (files are already staged)
 git commit -m "Release v1.0.1"
 
-# Tag the public branch
-git tag -a v1.0.1 -m "Release v1.0.1: [Brief description of changes]"
-
-# Push to public repo
+# Push to public repo (the tag already exists from step 6, so just push it)
 git push public public:main
 git push public v1.0.1
 
@@ -152,10 +149,8 @@ git push origin main && git push origin vX.X.X
 # Update public (orphan branch - copy files manually)
 git checkout public
 git checkout main -- appcast.xml makeHTML-Swift/
-git add .
 git commit -m "Release vX.X.X"
-git tag -a vX.X.X -m "Release vX.X.X: Description"
-git push public public:main && git push public vX.X.X
+git push public public:main && git push public vX.X.X  # Tag already exists from step 6
 git checkout main
 ```
 
