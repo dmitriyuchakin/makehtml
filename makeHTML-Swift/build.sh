@@ -6,8 +6,8 @@
 set -e
 
 # Version configuration
-APP_VERSION="0.6"
-BUILD_NUMBER="260101"
+APP_VERSION="0.7"
+BUILD_NUMBER="260102"
 
 echo "========================================="
 echo "Building makeHTML Native macOS App"
