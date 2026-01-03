@@ -6,7 +6,7 @@
 set -e
 
 # Version configuration
-APP_VERSION="0.7"
+APP_VERSION="0.7.0"
 BUILD_NUMBER="260102"
 
 echo "========================================="
