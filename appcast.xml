@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>makeHTML Changelog</title>
-    <link>https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml</link>
+    <link>https://raw.githubusercontent.com/dmitriyuchakin/makehtml/main/appcast.xml</link>
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
 
@@ -29,22 +29,20 @@
     <!-- Example item - update this for each release -->
     <item>
       <title>Version 0.6</title>
-      <link>https://github.com/YOUR_USERNAME/YOUR_REPO</link>
+      <link>https://github.com/dmitriyuchakin/makehtml</link>
       <sparkle:version>0.6</sparkle:version>
       <sparkle:shortVersionString>0.6</sparkle:shortVersionString>
       <description><![CDATA[
         <h2>What's New in Version 0.6</h2>
         <ul>
-          <li>Added automatic line break handling for heading detection</li>
-          <li>Added Reset button to clear preview</li>
-          <li>Added automatic update functionality via Sparkle</li>
-          <li>Bug fixes and improvements</li>
+          <li>Bug fixes</li>
+          <li>Automatic updates/li>
         </ul>
       ]]></description>
       <pubDate>Mon, 10 Dec 2025 12:00:00 +0000</pubDate>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v0.6/makeHTML-0.6.zip"
+        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.6/makeHTML-0.6.zip"
         sparkle:edSignature="SIGNATURE_GOES_HERE_AFTER_SIGNING"
         length="FILE_SIZE_IN_BYTES"
         type="application/octet-stream"

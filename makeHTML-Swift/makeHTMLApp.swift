@@ -77,7 +77,7 @@ struct makeHTMLApp: App {
         // Initialize Sparkle updater
         // Set startingUpdater to false to avoid errors if feed URL isn't configured yet
         updaterController = SPUStandardUpdaterController(
-            startingUpdater: false,
+            startingUpdater: true,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )

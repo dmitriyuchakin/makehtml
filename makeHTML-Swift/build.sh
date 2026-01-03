@@ -6,8 +6,8 @@
 set -e
 
 # Version configuration
-APP_VERSION="0.5"
-BUILD_NUMBER="1111"
+APP_VERSION="0.51"
+BUILD_NUMBER="260101"
 
 echo "========================================="
 echo "Building makeHTML Native macOS App"
@@ -180,7 +180,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string>YOUR_PUBLIC_KEY_WILL_GO_HERE</string>
+    <string>85PC0N/RsE5c4jTQl59qWx0Wbu7etZ1kP1YfU62VBxI=</string>
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
