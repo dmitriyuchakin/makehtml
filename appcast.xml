@@ -35,16 +35,16 @@
       <pubDate>Sat, 03 Jan 2026 12:00:00 +0000</pubDate>
       <enclosure
         url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.5/makeHTML.zip"
-        sparkle:version="0.7.5"
+        sparkle:version="26010302"
         sparkle:shortVersionString="0.7.5"
-        sparkle:edSignature="lvZNhxiTNGXSxrcRyyntyQ2kqh3osNnzCAVuq9gdnTgc7szZClnnDNCXjZUmWARb6FhWDcTdtXAyez0lETk7Dw=="
-        length="3880674"
+        sparkle:edSignature="OHf/fXa4MuSdpvFbZOeBBS5sHfQTMxl1OObwQyJ2OSpwLQKrPkV4uZWPXQE6arq/2BwduvStp2fdIb5BYjdpCA=="
+        length="3880672"
         type="application/octet-stream"
       />
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
     </item>
 
-    
+
     <item>
       <title>Version 0.7.4</title>
       <sparkle:releaseNotesLink>
@@ -53,7 +53,7 @@
       <pubDate>Sat, 03 Jan 2026 12:00:00 +0000</pubDate>
       <enclosure
         url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.4/makeHTML.zip"
-        sparkle:version="0.7.4"
+        sparkle:version="260103.1"
         sparkle:shortVersionString="0.7.4"
         sparkle:edSignature="PlcaqGJqI5JKljmDUFOVMzcDczMVolYqdXBbuYi3f2RNNb+gXLKa8h73/nwtESsKyGJX2SAIe34E5RPJijr0Aw=="
         length="3880672"
