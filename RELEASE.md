@@ -15,7 +15,7 @@ This document outlines the steps for creating and publishing a new release of ma
 Update the version in `makeHTML-Swift/build.sh`:
 
 ```bash
-APP_VERSION="0.7"      # Line 9 - Marketing version (X.Y)
+APP_VERSION="0.7.1"      # Line 9 - Marketing version (X.Y)
 BUILD_NUMBER="260102"  # Line 10 - Build number (YYMMDD format)
 ```
 
