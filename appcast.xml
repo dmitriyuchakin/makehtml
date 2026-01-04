@@ -26,114 +26,26 @@
     6. Commit and push this file to GitHub
     -->
 
-    <!-- Example item - update this for each release -->
-    <item>
-      <title>Version 0.7.3</title>
-      <sparkle:releaseNotesLink>
-        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.3
-      </sparkle:releaseNotesLink>
-      <pubDate>Fri, 2 Jan 2026 12:07:00 +0000</pubDate>
-      <enclosure
-        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.3/makeHTML.zip"
-        sparkle:version="0.7.3"
-        sparkle:shortVersionString="0.7.3"
-        sparkle:edSignature="Bw5wyEqIglSg6qakdWKN1OhyOp7Cc22gWiZ6fddU5Ok="
-        length="3880664"
-        type="application/octet-stream"
-      />
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-    </item>
-    <item>
-      <title>Version 0.7.2</title>
-      <sparkle:releaseNotesLink>
-        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.2
-      </sparkle:releaseNotesLink>
-      <pubDate>Fri, 2 Jan 2026 12:04:00 +0000</pubDate>
-      <enclosure
-        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.2/makeHTML.zip"
-        sparkle:version="0.7.2"
-        sparkle:shortVersionString="0.7.2"
-        sparkle:edSignature="fwgbwCscz9N3GFYEts4bxOIseM9bH644ikAk8df8ens="
-        length="3880666"
-        type="application/octet-stream"
-      />
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-    </item>
-    <item>
-      <title>Version 0.7.1</title>
-      <sparkle:releaseNotesLink>
-        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.1
-      </sparkle:releaseNotesLink>
-      <pubDate>Fri, 2 Jan 2026 12:02:00 +0000</pubDate>
-      <enclosure
-        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.1/makeHTML.zip"
-        sparkle:version="0.7.1"
-        sparkle:shortVersionString="0.7.1"
-        sparkle:edSignature="j4m/Z4X6PS4vC7i0mz7ONaKerTrFWxY+Bm0ekTJIRn0="
-        length="3880666"
-        type="application/octet-stream"
-      />
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-    </item>
-    
+    <!-- Add new releases here - newest first -->
+
     
     <item>
-      <title>Version 0.7.0</title>
+      <title>Version 0.7.4</title>
       <sparkle:releaseNotesLink>
-        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.0
+        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.4
       </sparkle:releaseNotesLink>
-      <pubDate>Fri, 2 Jan 2026 12:01:00 +0000</pubDate>
+      <pubDate>Fri, 03 Jan 2026 12:00:00 +0000</pubDate>
       <enclosure
-        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.0/makeHTML.zip"
-        sparkle:version="0.7.0"
-        sparkle:shortVersionString="0.7.0"
-        sparkle:edSignature="Kdnq+xiqxaPwOWWpT6jUR1WfEhrGwAn6LAKjqzy4QP4="
-        length="3880662"
+        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.4/makeHTML.zip"
+        sparkle:version="0.7.4"
+        sparkle:shortVersionString="0.7.4"
+        sparkle:edSignature="PlcaqGJqI5JKljmDUFOVMzcDczMVolYqdXBbuYi3f2RNNb+gXLKa8h73/nwtESsKyGJX2SAIe34E5RPJijr0Aw=="
+        length="3880672"
         type="application/octet-stream"
       />
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
     </item>
 
-
-    <item>
-      <title>Version 0.6.0</title>
-      <sparkle:releaseNotesLink>
-        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.6.0
-      </sparkle:releaseNotesLink>
-      <pubDate>Fri, 2 Jan 2026 12:00:00 +0000</pubDate>
-      <enclosure
-        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.6.0/makeHTML.zip"
-        sparkle:version="0.6.0"
-        sparkle:shortVersionString="0.6.0"
-        sparkle:edSignature="AQaK8LEiUmVPv9gzXLbZhXXU1W/ngwGz2L0phA6N5Ws="
-        length="3880663"
-        type="application/octet-stream"
-      />
-    </item>
-
-    <!-- Previous version example (version 0.5) -->
-    <!--
-    <item>
-      <title>Version 0.5</title>
-      <link>https://github.com/YOUR_USERNAME/YOUR_REPO</link>
-      <sparkle:version>0.5</sparkle:version>
-      <sparkle:shortVersionString>0.5</sparkle:shortVersionString>
-      <description><![CDATA[
-        <h2>What's New in Version 0.5</h2>
-        <ul>
-          <li>Initial release</li>
-        </ul>
-      ]]></description>
-      <pubDate>Mon, 01 Dec 2025 12:00:00 +0000</pubDate>
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-      <enclosure
-        url="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v0.5/makeHTML-0.5.zip"
-        sparkle:edSignature="SIGNATURE"
-        length="12345678"
-        type="application/octet-stream"
-      />
-    </item>
-    -->
 
   </channel>
 </rss>
