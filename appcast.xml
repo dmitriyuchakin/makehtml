@@ -28,27 +28,22 @@
 
     <!-- Add new releases here - newest first -->
 
-    <!-- Previous version example (version 0.5) -->
-    <!--
+    <!-- Example format for new releases:
     <item>
-      <title>Version 0.5</title>
-      <link>https://github.com/YOUR_USERNAME/YOUR_REPO</link>
-      <sparkle:version>0.5</sparkle:version>
-      <sparkle:shortVersionString>0.5</sparkle:shortVersionString>
-      <description><![CDATA[
-        <h2>What's New in Version 0.5</h2>
-        <ul>
-          <li>Initial release</li>
-        </ul>
-      ]]></description>
-      <pubDate>Mon, 01 Dec 2025 12:00:00 +0000</pubDate>
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <title>Version X.Y.Z</title>
+      <sparkle:releaseNotesLink>
+        https://github.com/dmitriyuchakin/makehtml/releases/tag/vX.Y.Z
+      </sparkle:releaseNotesLink>
+      <pubDate>Day, DD Mon YYYY HH:MM:SS +0000</pubDate>
       <enclosure
-        url="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/download/v0.5/makeHTML-0.5.zip"
-        sparkle:edSignature="SIGNATURE"
-        length="12345678"
+        url="https://github.com/dmitriyuchakin/makehtml/releases/download/vX.Y.Z/makeHTML.zip"
+        sparkle:version="X.Y.Z"
+        sparkle:shortVersionString="X.Y.Z"
+        sparkle:edSignature="[SIGNATURE_FROM_SIGN_UPDATE_SH]"
+        length="[FILE_SIZE_FROM_SIGN_UPDATE_SH]"
         type="application/octet-stream"
       />
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
     </item>
     -->
 
