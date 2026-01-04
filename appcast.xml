@@ -27,6 +27,22 @@
     -->
 
     <!-- Add new releases here - newest first -->
+<item>
+      <title>Version 0.7.5</title>
+      <sparkle:releaseNotesLink>
+        https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.5
+      </sparkle:releaseNotesLink>
+      <pubDate>Sat, 03 Jan 2026 12:00:00 +0000</pubDate>
+      <enclosure
+        url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.5/makeHTML.zip"
+        sparkle:version="0.7.5"
+        sparkle:shortVersionString="0.7.5"
+        sparkle:edSignature="lvZNhxiTNGXSxrcRyyntyQ2kqh3osNnzCAVuq9gdnTgc7szZClnnDNCXjZUmWARb6FhWDcTdtXAyez0lETk7Dw=="
+        length="3880674"
+        type="application/octet-stream"
+      />
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+    </item>
 
     
     <item>
@@ -34,7 +50,7 @@
       <sparkle:releaseNotesLink>
         https://github.com/dmitriyuchakin/makehtml/releases/tag/v0.7.4
       </sparkle:releaseNotesLink>
-      <pubDate>Fri, 03 Jan 2026 12:00:00 +0000</pubDate>
+      <pubDate>Sat, 03 Jan 2026 12:00:00 +0000</pubDate>
       <enclosure
         url="https://github.com/dmitriyuchakin/makehtml/releases/download/v0.7.4/makeHTML.zip"
         sparkle:version="0.7.4"
