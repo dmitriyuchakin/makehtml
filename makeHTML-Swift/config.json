@@ -3,7 +3,7 @@
     "paragraph_tag": "p",
     "heading_tag": "h3"
   },
-  "replacements_mode": "safe",
+  "replacements_mode": "aggressive",
   "replacements": [
     {
       "search": "\u00a9",
